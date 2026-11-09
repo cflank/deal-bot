@@ -69,6 +69,13 @@ def main(argv=None) -> int:
     latest = latest_json(cfg, state)
     history = state.get("history", {})
     state.pop("_assessed", None)
+    if not notifier.topic:
+        # Nothing was actually pushed: keep the startup summary and current deals
+        # pending so they go out once NTFY_TOPIC is configured.
+        state.pop("started_products", None)
+        state.pop("last_digest", None)
+        for rec in state.get("offers", {}).values():
+            rec.pop("alerted_price", None)
     if not args.dry_run:
         data.mkdir(parents=True, exist_ok=True)
         state_path.write_text(json.dumps(state, ensure_ascii=False), "utf-8")

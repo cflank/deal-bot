@@ -235,6 +235,24 @@ class RunnerTests(unittest.TestCase):
 
 
 class CliTests(unittest.TestCase):
+    def test_without_topic_alerts_stay_pending(self):
+        import os, tempfile
+        from dealbot import __main__ as cli
+        orig = runner.collect
+        runner.collect = lambda cfg: ([offer("iPhone Air 256GB", 1099, "https://bb/1")], [], {"BB": {"ok": True, "raw": 1, "matched": 1}})
+        old = os.environ.pop("NTFY_TOPIC", None)
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                cli.main(["--data", d])
+                st = json.loads(Path(d, "state.json").read_text("utf-8"))
+                self.assertNotIn("started_products", st)
+                self.assertFalse(any("alerted_price" in r for r in st["offers"].values()))
+                self.assertTrue(Path(d, "latest.json").exists())
+        finally:
+            runner.collect = orig
+            if old is not None:
+                os.environ["NTFY_TOPIC"] = old
+
     def test_interval_skip(self):
         from dealbot.__main__ import _due
         cfg = {"settings": {"interval_minutes": 30}}
