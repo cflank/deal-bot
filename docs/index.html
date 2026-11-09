@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>比价机器人</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏷️</text></svg>">
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #ffffff; --text: #1b1f24; --muted: #5d6673; --line: #dfe3e8;
+  --accent: #1f6feb; --accent-text: #ffffff; --good: #1a7f37; --good-bg: #dafbe1;
+  --warn: #9a6700; --warn-bg: #fff8c5; --bad: #cf222e; --bad-bg: #ffebe9;
+  --s1: #1f6feb; --s2: #bf3989; --s3: #1a7f37; --s4: #bc4c00; --s5: #8250df; --s6: #0a7ea4;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1117; --panel: #161b22; --text: #e6edf3; --muted: #9198a1; --line: #30363d;
+    --accent: #4493f8; --accent-text: #0d1117; --good: #3fb950; --good-bg: #12361f;
+    --warn: #d29922; --warn-bg: #3b2e0a; --bad: #f85149; --bad-bg: #42181a;
+    --s1: #4493f8; --s2: #db61a2; --s3: #3fb950; --s4: #f0883e; --s5: #a371f7; --s6: #39c5cf;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+a { color: var(--accent); }
+button, input, select, textarea { font: inherit; color: inherit; }
+header { background: var(--panel); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+.top { display: flex; align-items: center; gap: 12px; min-height: 56px; flex-wrap: wrap; }
+.top h1 { font-size: 18px; margin: 0; margin-right: auto; }
+nav[role="tablist"] { display: flex; gap: 4px; }
+.tab { border: 0; background: none; padding: 8px 14px; border-radius: 8px; cursor: pointer; color: var(--muted); }
+.tab[aria-selected="true"] { background: var(--bg); color: var(--text); font-weight: 600; }
+.pill { font-size: 12px; padding: 2px 8px; border-radius: 99px; background: var(--bg); color: var(--muted); border: 1px solid var(--line); }
+.pill.ok { color: var(--good); background: var(--good-bg); border-color: transparent; }
+.pill.bad { color: var(--bad); background: var(--bad-bg); border-color: transparent; }
+.pill.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+main { padding: 16px 0 120px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px; margin-bottom: 16px; }
+.card h2 { font-size: 17px; margin: 0 0 12px; }
+.card h3 { font-size: 15px; margin: 16px 0 8px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+.btn { border: 1px solid var(--line); background: var(--panel); padding: 7px 14px; border-radius: 8px; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); font-weight: 600; }
+.btn.danger { color: var(--bad); }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn.small { padding: 3px 10px; font-size: 13px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { border: 1px solid var(--line); background: var(--panel); border-radius: 99px; padding: 4px 12px; cursor: pointer; }
+.chip[aria-pressed="true"] { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.offers { display: grid; gap: 8px; }
+.offer { display: grid; grid-template-columns: 110px 1fr auto; gap: 4px 12px; align-items: start;
+  padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; }
+.offer.hit { border-color: var(--good); box-shadow: inset 4px 0 0 var(--good); }
+.price { font-size: 20px; font-weight: 700; white-space: nowrap; }
+.offer .title { overflow-wrap: anywhere; }
+.offer .meta { grid-column: 2 / 4; display: flex; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.badge { font-size: 12px; padding: 1px 7px; border-radius: 6px; background: var(--bg); border: 1px solid var(--line); white-space: nowrap; }
+.badge.good { color: var(--good); background: var(--good-bg); border-color: transparent; }
+.badge.warn { color: var(--warn); background: var(--warn-bg); border-color: transparent; }
+.chart { width: 100%; height: auto; display: block; }
+.legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+ul.plain { list-style: none; padding: 0; margin: 0; }
+ul.plain li { padding: 6px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+ul.plain li:last-child { border-bottom: 0; }
+label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.field { margin-bottom: 12px; min-width: 0; }
+input[type=text], input[type=number], input[type=password], input[type=url], select, textarea {
+  width: 100%; padding: 7px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+textarea { min-height: 84px; resize: vertical; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0 12px; }
+.check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: 15px; margin: 0; }
+.check input { width: 18px; height: 18px; }
+details.prod { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 10px; }
+details.prod > summary { padding: 10px 12px; cursor: pointer; display: flex; gap: 8px; align-items: center; list-style: none; }
+details.prod > summary::-webkit-details-marker { display: none; }
+details.prod > summary::before { content: "▸"; color: var(--muted); }
+details.prod[open] > summary::before { content: "▾"; }
+details.prod .body { padding: 4px 12px 12px; }
+table.tiers { width: 100%; border-collapse: collapse; }
+table.tiers th { text-align: left; font-weight: normal; font-size: 13px; color: var(--muted); padding: 0 6px 4px 0; }
+table.tiers td { padding: 0 6px 6px 0; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; flex-wrap: wrap; }
+.seg label { margin: 0; padding: 6px 12px; cursor: pointer; color: var(--text); font-size: 14px; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg input:checked + span { font-weight: 700; color: var(--accent); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: -2px; }
+.src { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; margin-bottom: 8px; }
+.savebar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); z-index: 6; }
+.savebar .wrap { display: flex; gap: 8px; align-items: center; min-height: 60px; flex-wrap: wrap; padding-top: 8px; padding-bottom: 8px; }
+#saveMsg { margin-right: auto; font-size: 14px; }
+.err { color: var(--bad); }
+.okmsg { color: var(--good); }
+.empty { color: var(--muted); padding: 12px 0; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 640px) {
+  .offer { grid-template-columns: 1fr auto; }
+  .offer .title { grid-column: 1 / 3; }
+  .offer .meta { grid-column: 1 / 3; }
+  .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .grid2 { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap top">
+    <h1>🏷️ 比价机器人</h1>
+    <nav role="tablist" aria-label="页面">
+      <button class="tab" role="tab" id="tab-board" aria-controls="board" aria-selected="true">看板</button>
+      <button class="tab" role="tab" id="tab-settings" aria-controls="settings" aria-selected="false" tabindex="-1">设置</button>
+    </nav>
+    <span id="conn" class="pill">未连接 GitHub</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="board" role="tabpanel" aria-labelledby="tab-board">
+    <div class="card">
+      <div class="row" style="justify-content: space-between">
+        <div>
+          <div id="runInfo">正在加载…</div>
+          <div id="runStatus" class="small muted"></div>
+        </div>
+        <div class="row">
+          <button class="btn" id="btnRefresh" type="button">刷新</button>
+          <button class="btn primary" id="btnRun" type="button">立即检查</button>
+        </div>
+      </div>
+      <p id="actionMsg" class="small" role="status" aria-live="polite"></p>
+      <div class="chips" id="productChips" role="group" aria-label="按商品筛选"></div>
+      <div class="row" style="margin-top: 10px">
+        <label class="check"><input type="checkbox" id="onlyHits"> 只看达到提醒条件的</label>
+        <label class="check"><input type="checkbox" id="hideUsed"> 隐藏二手</label>
+      </div>
+    </div>
+    <div id="productBoards"></div>
+    <div class="card">
+      <h2>RedFlagDeals 相关新帖</h2>
+      <ul class="plain" id="posts"></ul>
+    </div>
+    <div class="card">
+      <h2>数据源状态</h2>
+      <ul class="plain" id="health"></ul>
+    </div>
+  </section>
+
+  <section id="settings" role="tabpanel" aria-labelledby="tab-settings" hidden>
+    <div class="card">
+      <h2>连接 GitHub</h2>
+      <p class="small muted">保存设置和“立即检查”需要一个只对本仓库有权限的 GitHub 令牌。令牌只保存在这台设备的浏览器里。</p>
+      <div class="field">
+        <label for="token">GitHub 令牌（fine-grained token）</label>
+        <input type="password" id="token" autocomplete="off" spellcheck="false" placeholder="github_pat_…">
+      </div>
+      <div class="row">
+        <button class="btn primary" id="btnToken" type="button">保存令牌</button>
+        <button class="btn" id="btnTokenClear" type="button">清除</button>
+        <a id="tokenLink" class="small" target="_blank" rel="noopener">去 GitHub 创建令牌 ↗</a>
+      </div>
+      <p class="small muted" id="tokenHelp"></p>
+      <p id="tokenMsg" class="small" role="status" aria-live="polite"></p>
+    </div>
+
+    <div class="card">
+      <h2>通用</h2>
+      <div class="grid2">
+        <div class="field">
+          <label for="s-interval">检查频率</label>
+          <select id="s-interval" data-bind="settings.interval_minutes" data-type="num">
+            <option value="10">每 10 分钟</option><option value="20">每 20 分钟</option>
+            <option value="30">每 30 分钟</option><option value="60">每小时</option>
+            <option value="180">每 3 小时</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="s-digest">每日行情推送时间（多伦多）</label>
+          <select id="s-digest" data-bind="settings.daily_digest_hour" data-type="num"></select>
+        </div>
+        <div class="field">
+          <label for="s-drop">已推送过的报价，再降多少才再推（$）</label>
+          <input type="number" id="s-drop" min="0" step="1" data-bind="settings.price_drop_cad" data-type="num">
+        </div>
+        <div class="field">
+          <label for="s-urgent">折扣达到多少用最高优先级推送（%）</label>
+          <input type="number" id="s-urgent" min="0" max="100" step="1" data-bind="settings.urgent_discount_pct" data-type="num">
+        </div>
+        <div class="field">
+          <label for="s-max">每次最多单独推送几条</label>
+          <input type="number" id="s-max" min="1" max="30" step="1" data-bind="settings.max_pushes_per_run" data-type="num">
+        </div>
+        <div class="field">
+          <label for="s-hst">税率（%，用于显示含税价）</label>
+          <input type="number" id="s-hst" min="0" max="30" step="0.5" data-bind="settings.hst_pct" data-type="num">
+        </div>
+      </div>
+      <label class="check"><input type="checkbox" data-bind="settings.skip_out_of_stock" data-type="bool"> 跳过网页标明缺货的报价</label>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+        <h2 style="margin: 0">商品</h2>
+        <button class="btn" id="btnAddProduct" type="button">＋ 添加商品</button>
+      </div>
+      <div id="productEditors"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="justify-content: space-between; margin-bottom: 8px">
+        <h2 style="margin: 0">数据源</h2>
+        <button class="btn" id="btnAddSource" type="button">＋ 添加网页</button>
+      </div>
+      <p class="small muted">网址里的 <code>{query}</code> 会替换成每个商品的搜索词，这样一个数据源能搜所有商品；没有它的网址只抓一次，再按商品关键词匹配。</p>
+      <div id="sourceEditors"></div>
+    </div>
+
+    <div class="card">
+      <h2>手机推送和其他操作</h2>
+      <p class="small muted">推送用 ntfy。主题名存放在仓库的 Settings → Secrets → Actions → <code>NTFY_TOPIC</code>，不会出现在这个公开页面里。</p>
+      <div class="row">
+        <button class="btn" id="btnTest" type="button">发送测试推送</button>
+        <button class="btn" id="btnDigest" type="button">立即发送每日行情</button>
+      </div>
+      <p id="opsMsg" class="small" role="status" aria-live="polite"></p>
+    </div>
+  </section>
+</main>
+
+<div class="savebar" id="savebar" hidden>
+  <div class="wrap">
+    <span id="saveMsg" role="status" aria-live="polite"></span>
+    <button class="btn" id="btnDiscard" type="button">放弃修改</button>
+    <button class="btn primary" id="btnSave" type="button">保存设置</button>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ------------------------------------------------------------ repo & API */
+const REPO = (() => {
+  const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+  const seg = location.pathname.split("/").filter(Boolean)[0];
+  if (m && seg) return { owner: m[1], name: seg };
+  return { owner: "cflank", name: "deal-bot" };
+})();
+const API = `https://api.github.com/repos/${REPO.owner}/${REPO.name}`;
+const RAW = `https://raw.githubusercontent.com/${REPO.owner}/${REPO.name}`;
+const WORKFLOW = "bot.yml";
+const COND = { new: "全新", openbox: "开箱", refurb: "翻新", used: "二手" };
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} },
+};
+let token = store.get("dealbot.token") || "";
+
+async function gh(path, { method = "GET", body, raw = false } = {}) {
+  const headers = { Accept: raw ? "application/vnd.github.raw+json" : "application/vnd.github+json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body) headers["Content-Type"] = "application/json";
+  const r = await fetch(API + path, { method, headers, body: body ? JSON.stringify(body) : undefined, cache: "no-store" });
+  if (!r.ok) {
+    let msg = `HTTP ${r.status}`;
+    try { const j = await r.json(); if (j.message) msg += `：${j.message}`; } catch {}
+    const e = new Error(msg); e.status = r.status; throw e;
+  }
+  if (r.status === 204) return null;
+  return raw ? r.text() : r.json();
+}
+
+async function readFile(path, ref) {
+  if (token) return JSON.parse(await gh(`/contents/${path}?ref=${ref}`, { raw: true }));
+  const r = await fetch(`${RAW}/${ref}/${path}?t=${Date.now()}`, { cache: "no-store" });
+  if (!r.ok) { const e = new Error(`HTTP ${r.status}`); e.status = r.status; throw e; }
+  return r.json();
+}
+
+const b64encode = (s) => { const b = new TextEncoder().encode(s); let x = ""; b.forEach(c => x += String.fromCharCode(c)); return btoa(x); };
+const b64decode = (s) => new TextDecoder().decode(Uint8Array.from(atob(s.replace(/\n/g, "")), c => c.charCodeAt(0)));
+
+async function dispatch(mode) {
+  await gh(`/actions/workflows/${WORKFLOW}/dispatches`, { method: "POST", body: { ref: "main", inputs: { mode } } });
+}
+
+/* ---------------------------------------------------------------- helpers */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const safeUrl = (u) => /^https?:\/\//i.test(u || "") ? u : "#";
+const money = (v) => v == null ? "-" : "$" + Number(v).toLocaleString("en-CA", { minimumFractionDigits: v % 1 ? 2 : 0, maximumFractionDigits: 2 });
+function ago(iso) {
+  if (!iso) return "从未";
+  const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
+  if (m < 1) return "刚刚"; if (m < 60) return `${m} 分钟前`;
+  const h = Math.round(m / 60); if (h < 48) return `${h} 小时前`;
+  return `${Math.round(h / 24)} 天前`;
+}
+function setMsg(el, text, kind) { el.textContent = text; el.className = "small " + (kind === "err" ? "err" : kind === "ok" ? "okmsg" : ""); }
+function errText(e) {
+  if (e.status === 401) return "令牌无效或已过期，请在“设置”里重新填写。";
+  if (e.status === 403 || e.status === 404) return `没有权限（${e.message}）。请确认令牌对本仓库有 Contents 和 Actions 的读写权限。`;
+  return e.message;
+}
+
+/* ------------------------------------------------------------------- tabs */
+const tabs = [$("#tab-board"), $("#tab-settings")];
+function selectTab(t) {
+  tabs.forEach(x => {
+    const on = x === t;
+    x.setAttribute("aria-selected", on); x.tabIndex = on ? 0 : -1;
+    document.getElementById(x.getAttribute("aria-controls")).hidden = !on;
+  });
+  $("#savebar").hidden = t.id !== "tab-settings";
+  store.set("dealbot.tab", t.id);
+}
+tabs.forEach((t, i) => {
+  t.addEventListener("click", () => selectTab(t));
+  t.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+      const n = tabs[(i + (e.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+      n.focus(); selectTab(n);
+    }
+  });
+});
+
+/* ------------------------------------------------------------- dashboard */
+let latest = null, history = {}, filterProduct = store.get("dealbot.filter") || "all";
+
+async function loadBoard() {
+  $("#runInfo").textContent = "正在加载…";
+  try {
+    [latest, history] = await Promise.all([readFile("latest.json", "data"), readFile("history.json", "data").catch(() => ({}))]);
+  } catch (e) {
+    latest = null;
+    $("#runInfo").textContent = e.status === 404 ? "还没有数据：机器人第一次运行后这里会显示报价。" : `加载失败：${errText(e)}`;
+  }
+  if (latest) {
+    $("#runInfo").innerHTML = `上次检查：<strong>${esc(ago(latest.generated_at))}</strong>
+      <span class="muted small">（每 ${esc(latest.interval_minutes)} 分钟检查一次）</span>`;
+  }
+  renderBoard();
+  loadRuns();
+}
+
+async function loadRuns() {
+  try {
+    const j = await gh(`/actions/workflows/${WORKFLOW}/runs?per_page=1`);
+    const r = j.workflow_runs && j.workflow_runs[0];
+    if (!r) return;
+    const st = r.status !== "completed" ? "运行中…" : r.conclusion === "success" ? "成功" : `失败（${r.conclusion}）`;
+    $("#runStatus").innerHTML = `最近一次 GitHub 运行：${esc(st)} · ${esc(ago(r.created_at))} · <a href="${esc(r.html_url)}" target="_blank" rel="noopener">查看日志 ↗</a>`;
+  } catch { /* unauthenticated rate limit etc. — not critical */ }
+}
+
+function renderBoard() {
+  const chips = $("#productChips"); chips.innerHTML = "";
+  const products = latest ? latest.products : [];
+  if (filterProduct !== "all" && !products.some(p => p.id === filterProduct)) filterProduct = "all";
+  [{ id: "all", name: "全部" }, ...products].forEach(p => {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "chip"; b.textContent = p.name;
+    b.setAttribute("aria-pressed", p.id === filterProduct);
+    b.onclick = () => { filterProduct = p.id; store.set("dealbot.filter", p.id); renderBoard(); };
+    chips.append(b);
+  });
+
+  const boards = $("#productBoards"); boards.innerHTML = "";
+  const onlyHits = $("#onlyHits").checked, hideUsed = $("#hideUsed").checked;
+  products.filter(p => filterProduct === "all" || p.id === filterProduct).forEach(p => {
+    const all = latest.offers.filter(o => o.product === p.id);
+    const list = all.filter(o => (!onlyHits || o.qualifies) && (!hideUsed || o.condition !== "used"));
+    const best = all.filter(o => o.condition !== "used").sort((a, b) => a.price - b.price)[0];
+    const card = document.createElement("section");
+    card.className = "card"; card.setAttribute("aria-label", p.name);
+    card.innerHTML = `<div class="row" style="justify-content: space-between">
+        <h2 style="margin: 0">${esc(p.name)}</h2>
+        <span class="small muted">${all.length} 个报价${best ? ` · 非二手最低 <strong>${money(best.price)}</strong>` : ""}</span>
+      </div>
+      ${chartHtml(history[p.id], p.name)}
+      <div class="offers">${list.map(offerHtml).join("") || `<div class="empty">${all.length ? "没有符合筛选条件的报价" : "暂时没有抓到报价"}</div>`}</div>`;
+    boards.append(card);
+  });
+  if (!products.length && latest) boards.innerHTML = `<div class="card empty">还没有启用的商品，去“设置”里添加。</div>`;
+
+  const posts = (latest?.posts || []).filter(p => filterProduct === "all" || p.product === filterProduct);
+  const names = Object.fromEntries(products.map(p => [p.id, p.name]));
+  $("#posts").innerHTML = posts.map(p => `<li><a href="${esc(safeUrl(p.link))}" target="_blank" rel="noopener">${esc(p.title)}</a>
+      <div class="small muted">${esc(names[p.product] || "")} · ${esc(ago(p.first_seen))}</div></li>`).join("") || `<li class="empty">暂无</li>`;
+
+  const h = Object.entries(latest?.health || {});
+  $("#health").innerHTML = h.map(([n, s]) => `<li><span class="pill ${s.ok ? "ok" : "bad"}">${s.ok ? "正常" : "失败"}</span>
+      <strong>${esc(n)}</strong> <span class="small muted">${s.ok ? `匹配 ${esc(s.matched)} / 抓到 ${esc(s.raw)}` : `连续 ${esc(s.fails)} 次 · ${esc(s.error)}`}</span></li>`).join("") || `<li class="empty">暂无</li>`;
+}
+
+function offerHtml(o) {
+  const badges = [];
+  if (o.pct != null) badges.push(`<span class="badge ${o.pct <= 100 ? "good" : ""}">原价的 ${Math.round(o.pct)}%</span>`);
+  if (o.tier) badges.push(`<span class="badge">${esc(o.tier)}</span>`);
+  badges.push(`<span class="badge">${esc(COND[o.condition] || o.condition)}</span>`);
+  badges.push(`<span class="badge">${esc(o.source)}</span>`);
+  if (o.qualifies) badges.push(`<span class="badge good">达到提醒条件</span>`);
+  if (o.carrier) badges.push(`<span class="badge warn">可能需绑定 ${esc(o.carrier)}</span>`);
+  if (o.seller) badges.push(`<span class="badge warn">${esc(o.seller)}</span>`);
+  if (o.storage_guessed) badges.push(`<span class="badge warn">容量未识别</span>`);
+  if (o.lowest != null && o.lowest < o.price) badges.push(`<span class="badge">曾低至 ${money(o.lowest)}</span>`);
+  return `<div class="offer ${o.qualifies ? "hit" : ""}">
+    <div class="price">${money(o.price)}</div>
+    <a class="title" href="${esc(safeUrl(o.url))}" target="_blank" rel="noopener">${esc(o.title)}</a>
+    <div class="small muted" style="white-space: nowrap">${o.msrp ? "原价 " + money(o.msrp) : ""}</div>
+    <div class="meta">${badges.join("")}</div></div>`;
+}
+
+function chartHtml(h, name) {
+  if (!h) return "";
+  const days = Object.keys(h).sort();
+  const series = [...new Set(days.flatMap(d => Object.keys(h[d])))].sort();
+  if (days.length < 2 || !series.length) return `<p class="small muted">价格走势：再积累几天数据后显示。</p>`;
+  // Draw at the real on-screen width so labels stay readable on phones.
+  const W = Math.max(280, Math.min(900, ($("main").clientWidth || 640) - 66)), H = W < 500 ? 160 : 200;
+  const P = { l: 52, r: 12, t: 10, b: 24 };
+  const vals = days.flatMap(d => Object.values(h[d]));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (hi === lo) { hi += 1; lo -= 1; }
+  const x = i => P.l + (W - P.l - P.r) * (days.length === 1 ? 0.5 : i / (days.length - 1));
+  const y = v => P.t + (H - P.t - P.b) * (1 - (v - lo) / (hi - lo));
+  const colors = ["--s1", "--s2", "--s3", "--s4", "--s5", "--s6"];
+  const lines = series.map((s, si) => {
+    const pts = days.map((d, i) => h[d][s] != null ? [x(i), y(h[d][s]), d, h[d][s]] : null).filter(Boolean);
+    const col = `var(${colors[si % colors.length]})`;
+    return `<polyline style="fill: none; stroke: ${col}; stroke-width: 2" points="${pts.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ")}"/>` +
+      pts.map(p => `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="3" style="fill: ${col}"><title>${esc(s)} ${p[2]}：${money(p[3])}</title></circle>`).join("");
+  }).join("");
+  const ticks = [lo, (lo + hi) / 2, hi].map(v => `<text x="${P.l - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11" style="fill: var(--muted)">${money(Math.round(v))}</text>
+    <line x1="${P.l}" x2="${W - P.r}" y1="${y(v)}" y2="${y(v)}" style="stroke: var(--line)"/>`).join("");
+  const xl = [0, days.length - 1].map(i => `<text x="${x(i)}" y="${H - 6}" text-anchor="${i ? "end" : "start"}" font-size="11" style="fill: var(--muted)">${days[i].slice(5)}</text>`).join("");
+  return `<h3>每日最低价走势</h3>
+    <svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(name)} 每日最低价走势">${ticks}${xl}${lines}</svg>
+    <div class="legend">${series.map((s, si) => `<span><i style="background: var(${colors[si % colors.length]})"></i>${esc(s)}</span>`).join("")}</div>`;
+}
+
+let resizeTimer;
+window.addEventListener("resize", () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => latest && renderBoard(), 200); });
+$("#onlyHits").onchange = renderBoard;
+$("#hideUsed").onchange = renderBoard;
+$("#btnRefresh").onclick = loadBoard;
+
+async function runAction(mode, msgEl, okText) {
+  if (!token) { setMsg(msgEl, "需要先在“设置”里填写 GitHub 令牌。", "err"); return; }
+  setMsg(msgEl, "正在提交…");
+  try { await dispatch(mode); setMsg(msgEl, okText, "ok"); setTimeout(loadRuns, 4000); }
+  catch (e) { setMsg(msgEl, errText(e), "err"); }
+}
+$("#btnRun").onclick = () => runAction("run", $("#actionMsg"), "已开始检查，大约 1–3 分钟后点“刷新”查看。");
+$("#btnTest").onclick = () => runAction("test-notify", $("#opsMsg"), "已发送，约 1 分钟内手机应收到测试推送。");
+$("#btnDigest").onclick = () => runAction("digest", $("#opsMsg"), "已开始，约 1–3 分钟后收到每日行情。");
+
+/* --------------------------------------------------------------- settings */
+let cfg = null, cfgSha = null, saved = "", dirty = false;
+
+const DEFAULT_PRODUCT = () => ({
+  id: "", name: "新商品", enabled: true, query: "", include: [], exclude: ["for parts", "broken", "wanted", "wtb"],
+  min_price: 0, max_price: null, msrp: {}, max_pct: { new: 90, openbox: 85, refurb: 85, used: 70 }, target_price: {},
+  _mode: "single", _rows: [{ gb: 256, msrp: null, target: null }],
+});
+
+function toUi(c) {
+  c.settings = c.settings || {};
+  (c.products || (c.products = [])).forEach(p => {
+    const m = p.msrp || {}, t = p.target_price || {};
+    const gbs = [...new Set([...Object.keys(m), ...Object.keys(t)].filter(k => /^\d+$/.test(k)))].map(Number).sort((a, b) => a - b);
+    p._mode = gbs.length ? "tiered" : (m.default || t.default) ? "single" : "none";
+    p._rows = gbs.length ? gbs.map(g => ({ gb: g, msrp: m[g] ?? null, target: t[g] ?? null })) : [{ gb: 256, msrp: null, target: null }];
+    p._single = { msrp: m.default ?? null, target: t.default ?? null };
+    p.max_pct = p.max_pct || {};
+  });
+  c.sources = c.sources || [];
+  return c;
+}
+
+function fromUi(c) {
+  const out = JSON.parse(JSON.stringify(c));
+  out.products.forEach(p => {
+    const mode = p._mode, rows = p._rows || [], single = p._single || {};
+    p.msrp = {}; p.target_price = {};
+    if (mode === "tiered") rows.filter(r => r.gb).forEach(r => {
+      if (r.msrp) p.msrp[String(r.gb)] = r.msrp;
+      if (r.target) p.target_price[String(r.gb)] = r.target;
+    });
+    if (mode === "single") { if (single.msrp) p.msrp.default = single.msrp; if (single.target) p.target_price.default = single.target; }
+    if (mode === "none" && single.target) p.target_price.default = single.target;
+    Object.keys(p.max_pct || {}).forEach(k => { if (p.max_pct[k] == null) delete p.max_pct[k]; });
+    if (p.max_price == null) delete p.max_price;
+    delete p._mode; delete p._rows; delete p._single;
+  });
+  return out;
+}
+
+function validate(c) {
+  const errs = [], ids = new Set();
+  c.products.forEach((p, i) => {
+    const n = p.name?.trim() || `第 ${i + 1} 个商品`;
+    if (!p.name?.trim()) errs.push(`${n}：名称不能为空`);
+    if (!p.include?.length && !p.name?.trim()) errs.push(`${n}：至少填一个“标题需包含”的词`);
+    if (ids.has(p.id)) errs.push(`${n}：重复的商品`);
+    ids.add(p.id);
+    if (p.max_price != null && p.min_price != null && p.max_price < p.min_price) errs.push(`${n}：最高价低于最低价`);
+    if (p._mode === "tiered" && !p._rows.some(r => r.gb && r.msrp)) errs.push(`${n}：按容量定价至少要填一行原价`);
+  });
+  c.sources.forEach((s, i) => {
+    if (!s.name?.trim()) errs.push(`第 ${i + 1} 个数据源：名称不能为空`);
+    if (s.type !== "bestbuy" && !/^https?:\/\//.test(s.url || "")) errs.push(`${s.name || "数据源"}：网址需以 http(s):// 开头`);
+  });
+  return errs;
+}
+
+function getPath(obj, path) { return path.split(".").reduce((o, k) => o == null ? o : o[k], obj); }
+function setPath(obj, path, v) {
+  const ks = path.split("."); let o = obj;
+  ks.slice(0, -1).forEach((k, i) => { if (o[k] == null) o[k] = /^\d+$/.test(ks[i + 1]) ? [] : {}; o = o[k]; });
+  o[ks[ks.length - 1]] = v;
+}
+function readInput(el) {
+  const t = el.dataset.type;
+  if (t === "bool") return el.checked;
+  if (t === "num") return el.value === "" ? null : Number(el.value);
+  if (t === "lines") return el.value.split(/\n|,/).map(s => s.trim()).filter(Boolean);
+  return el.value;
+}
+function fillInputs(root) {
+  root.querySelectorAll("[data-bind]").forEach(el => {
+    const v = getPath(cfg, el.dataset.bind), t = el.dataset.type;
+    if (t === "bool") el.checked = v == null ? true : !!v;  // enabled / skip_out_of_stock default to on
+    else if (t === "lines") el.value = (v || []).join("\n");
+    else if (el.type === "radio") el.checked = el.value === String(v);
+    else el.value = v ?? "";
+  });
+}
+
+document.addEventListener("input", onEdit);
+document.addEventListener("change", onEdit);
+function onEdit(e) {
+  const el = e.target;
+  if (!el.dataset || !el.dataset.bind || !cfg) return;
+  if (el.type === "radio" && !el.checked) return;
+  setPath(cfg, el.dataset.bind, el.type === "radio" ? el.value : readInput(el));
+  if (el.dataset.rerender) renderEditors();
+  if (el.dataset.bind.endsWith(".name")) {
+    const sum = el.closest("details")?.querySelector(".pname");
+    if (sum) sum.textContent = el.value || "（未命名）";
+  }
+  markDirty();
+}
+
+function markDirty() {
+  dirty = JSON.stringify(fromUi(cfg)) !== saved;
+  $("#btnSave").disabled = !dirty || !token;
+  $("#btnDiscard").disabled = !dirty;
+  const m = $("#saveMsg");
+  if (!token) setMsg(m, "只读：填写 GitHub 令牌后才能保存。");
+  else if (dirty) setMsg(m, "有未保存的修改。");
+  else setMsg(m, "");
+}
+
+function slugId(name) {
+  let base = (name || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "p";
+  let id = base, i = 2;
+  while (cfg.products.some(p => p.id === id)) id = `${base}-${i++}`;
+  return id;
+}
+
+function productEditor(p, i) {
+  const b = `products.${i}`;
+  const tiers = p._mode === "tiered" ? `
+    <table class="tiers"><thead><tr><th scope="col">容量（GB，1TB=1024）</th><th scope="col">原价 $</th><th scope="col">目标价 $（全新）</th><th><span class="sr">删除</span></th></tr></thead><tbody>
+    ${p._rows.map((r, j) => `<tr>
+      <td><input type="number" min="1" aria-label="容量" data-bind="${b}._rows.${j}.gb" data-type="num"></td>
+      <td><input type="number" min="0" aria-label="原价" data-bind="${b}._rows.${j}.msrp" data-type="num"></td>
+      <td><input type="number" min="0" aria-label="目标价" data-bind="${b}._rows.${j}.target" data-type="num"></td>
+      <td><button type="button" class="btn small danger" data-act="delRow" data-i="${i}" data-j="${j}" aria-label="删除这一行">✕</button></td></tr>`).join("")}
+    </tbody></table>
+    <button type="button" class="btn small" data-act="addRow" data-i="${i}">＋ 加一档容量</button>
+    <p class="small muted">标题里认不出容量时，按最小一档比较，避免高估折扣。</p>` :
+    `<div class="grid2">
+      ${p._mode === "single" ? `<div class="field"><label for="p${i}-msrp">原价 $</label><input type="number" min="0" id="p${i}-msrp" data-bind="${b}._single.msrp" data-type="num"></div>` : ""}
+      <div class="field"><label for="p${i}-target">目标价 $（全新，低于即提醒）</label><input type="number" min="0" id="p${i}-target" data-bind="${b}._single.target" data-type="num"></div>
+    </div>`;
+  return `<details class="prod" ${p._open ? "open" : ""} data-i="${i}">
+    <summary><span class="pname">${esc(p.name || "（未命名）")}</span>
+      ${p.enabled === false ? `<span class="pill">已暂停</span>` : `<span class="pill ok">监控中</span>`}</summary>
+    <div class="body">
+      <label class="check" style="margin-bottom: 12px"><input type="checkbox" data-bind="${b}.enabled" data-type="bool" data-rerender="1"> 启用监控</label>
+      <div class="grid2">
+        <div class="field"><label for="p${i}-name">名称（推送里显示）</label><input type="text" id="p${i}-name" data-bind="${b}.name"></div>
+        <div class="field"><label for="p${i}-q">搜索词（用于各网站搜索）</label><input type="text" id="p${i}-q" data-bind="${b}.query" placeholder="例如 airpods pro 3"></div>
+        <div class="field"><label for="p${i}-inc">标题需包含（任一即可，每行一个）</label><textarea id="p${i}-inc" data-bind="${b}.include" data-type="lines"></textarea></div>
+        <div class="field"><label for="p${i}-exc">标题含这些就排除（每行一个）</label><textarea id="p${i}-exc" data-bind="${b}.exclude" data-type="lines"></textarea></div>
+        <div class="field"><label for="p${i}-min">最低价 $（低于视为配件/误识别）</label><input type="number" min="0" id="p${i}-min" data-bind="${b}.min_price" data-type="num"></div>
+        <div class="field"><label for="p${i}-max">最高价 $（可空）</label><input type="number" min="0" id="p${i}-max" data-bind="${b}.max_price" data-type="num"></div>
+      </div>
+      <h3>原价和目标价</h3>
+      <div class="seg" role="radiogroup" aria-label="原价方式" style="margin-bottom: 10px">
+        ${[["tiered", "按容量分档"], ["single", "单一原价"], ["none", "不设原价"]].map(([v, t]) =>
+          `<label><input type="radio" name="mode${i}" value="${v}" data-bind="${b}._mode" data-rerender="1"><span>${t}</span></label>`).join("")}
+      </div>
+      ${tiers}
+      <h3>按折扣提醒：报价 ≤ 原价的百分之几</h3>
+      ${p._mode === "none" ? `<p class="small muted">不设原价时只按目标价提醒。</p>` : `<div class="grid4">
+        ${Object.entries(COND).map(([k, t]) => `<div class="field"><label for="p${i}-pct-${k}">${t}（%）</label>
+          <input type="number" min="1" max="150" id="p${i}-pct-${k}" placeholder="不提醒" data-bind="${b}.max_pct.${k}" data-type="num"></div>`).join("")}
+      </div><p class="small muted">留空表示这种成色不按折扣提醒。目标价只对全新机生效。</p>`}
+      <div class="row" style="justify-content: flex-end"><button type="button" class="btn danger" data-act="delProduct" data-i="${i}">删除这个商品</button></div>
+    </div></details>`;
+}
+
+function sourceEditor(s, i) {
+  const b = `sources.${i}`;
+  const kind = { rfd: "论坛 RSS", bestbuy: "Best Buy 接口", amazon: "Amazon 搜索页", page: "网页结构化数据" }[s.type] || s.type;
+  return `<div class="src">
+    <div class="row" style="justify-content: space-between">
+      <label class="check"><input type="checkbox" data-bind="${b}.enabled" data-type="bool"> <strong>${esc(s.name)}</strong></label>
+      <span class="pill">${esc(kind)}</span>
+    </div>
+    <div class="grid2" style="margin-top: 8px">
+      <div class="field"><label for="s${i}-name">名称</label><input type="text" id="s${i}-name" data-bind="${b}.name"></div>
+      ${s.type !== "rfd" ? `<div class="field"><label for="s${i}-cond">成色</label><select id="s${i}-cond" data-bind="${b}.condition">
+        <option value="">按标题自动识别</option>${Object.entries(COND).map(([k, t]) => `<option value="${k}">一律算${t}</option>`).join("")}</select></div>` : "<div></div>"}
+    </div>
+    ${s.type !== "bestbuy" ? `<div class="field"><label for="s${i}-url">网址</label><input type="url" id="s${i}-url" data-bind="${b}.url" spellcheck="false"></div>` : `<p class="small muted">自动用每个商品的搜索词查询。</p>`}
+    <div class="row" style="justify-content: flex-end"><button type="button" class="btn small danger" data-act="delSource" data-i="${i}">删除</button></div>
+  </div>`;
+}
+
+function renderEditors() {
+  if (!cfg) return;
+  const open = new Set([...document.querySelectorAll("details.prod[open]")].map(d => d.dataset.i));
+  cfg.products.forEach((p, i) => { p._open = open.has(String(i)) || p._open; });
+  $("#productEditors").innerHTML = cfg.products.map(productEditor).join("") || `<p class="empty">还没有商品。</p>`;
+  $("#sourceEditors").innerHTML = cfg.sources.map(sourceEditor).join("");
+  cfg.products.forEach(p => delete p._open);
+  fillInputs($("#settings"));
+}
+
+document.addEventListener("click", e => {
+  const btn = e.target.closest("[data-act]");
+  if (!btn || !cfg) return;
+  const i = Number(btn.dataset.i), act = btn.dataset.act;
+  if (act === "delProduct") {
+    if (!confirm(`删除“${cfg.products[i].name}”？保存后生效。`)) return;
+    cfg.products.splice(i, 1);
+  } else if (act === "addRow") { cfg.products[i]._rows.push({ gb: null, msrp: null, target: null }); cfg.products[i]._open = true; }
+  else if (act === "delRow") { cfg.products[i]._rows.splice(Number(btn.dataset.j), 1); cfg.products[i]._open = true; }
+  else if (act === "delSource") {
+    if (!confirm(`删除数据源“${cfg.sources[i].name}”？保存后生效。`)) return;
+    cfg.sources.splice(i, 1);
+  }
+  renderEditors(); markDirty();
+});
+
+$("#btnAddProduct").onclick = () => {
+  const p = DEFAULT_PRODUCT(); p._open = true;
+  cfg.products.push(p); renderEditors(); markDirty();
+  const d = document.querySelectorAll("details.prod"); d[d.length - 1]?.querySelector("input[type=text]")?.focus();
+};
+$("#btnAddSource").onclick = () => {
+  cfg.sources.push({ id: "custom-" + Date.now().toString(36), name: "新网页", type: "page", enabled: true, url: "https://" });
+  renderEditors(); markDirty();
+};
+
+async function loadConfig() {
+  try {
+    if (token) {
+      const j = await gh(`/contents/config.json?ref=main`);
+      cfgSha = j.sha;
+      cfg = toUi(JSON.parse(b64decode(j.content)));
+    } else {
+      cfg = toUi(await readFile("config.json", "main"));
+    }
+    saved = JSON.stringify(fromUi(cfg));
+    renderEditors(); markDirty();
+  } catch (e) {
+    $("#productEditors").innerHTML = `<p class="err">读取设置失败：${esc(errText(e))}</p>`;
+  }
+}
+
+$("#btnDiscard").onclick = () => { if (confirm("放弃所有未保存的修改？")) loadConfig(); };
+$("#btnSave").onclick = async () => {
+  const m = $("#saveMsg");
+  cfg.products.forEach(p => { if (!p.id) p.id = slugId(p.query || p.name); });  // id is fixed once saved
+  const errs = validate(cfg);
+  if (errs.length) { setMsg(m, "请先修正：" + errs.join("；"), "err"); return; }
+  const out = fromUi(cfg);
+  out.products.forEach(p => { if (!p.include || !p.include.length) p.include = [p.name]; });
+  $("#btnSave").disabled = true; setMsg(m, "正在保存…");
+  try {
+    const r = await gh(`/contents/config.json`, { method: "PUT", body: {
+      message: "settings: 通过设置页更新", branch: "main", sha: cfgSha,
+      content: b64encode(JSON.stringify(out, null, 2) + "\n") } });
+    cfgSha = r.content.sha;
+    cfg = toUi(out); saved = JSON.stringify(fromUi(cfg));
+    renderEditors(); markDirty();
+    setMsg(m, "已保存。机器人会马上按新设置检查一次，1–3 分钟后看板更新。", "ok");
+    setTimeout(loadRuns, 5000);
+  } catch (e) {
+    $("#btnSave").disabled = false;
+    setMsg(m, e.status === 409 ? "设置在别处被改过了，请点“放弃修改”重新加载后再改。" : "保存失败：" + errText(e), "err");
+  }
+};
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+/* ------------------------------------------------------------------ token */
+function tokenUrl() {
+  const q = new URLSearchParams({ name: `${REPO.name} 设置页`, description: "比价机器人设置页使用",
+    target_name: REPO.owner, expires_in: "90", contents: "write", actions: "write" });
+  return `https://github.com/settings/personal-access-tokens/new?${q}`;
+}
+$("#tokenLink").href = tokenUrl();
+$("#tokenHelp").textContent = `创建时：Repository access 选 “Only select repositories” → ${REPO.owner}/${REPO.name}；Permissions 里 Contents 和 Actions 选 “Read and write”。`;
+async function checkToken() {
+  const pill = $("#conn");
+  if (!token) { pill.textContent = "未连接 GitHub（只读）"; pill.className = "pill warn"; return false; }
+  try {
+    const r = await gh("");
+    const canPush = r.permissions ? r.permissions.push : true;
+    pill.textContent = canPush ? "已连接 GitHub" : "令牌无写权限"; pill.className = "pill " + (canPush ? "ok" : "bad");
+    return canPush;
+  } catch (e) { pill.textContent = "令牌无效"; pill.className = "pill bad"; return false; }
+}
+$("#btnToken").onclick = async () => {
+  const v = $("#token").value.trim();
+  if (!v) { setMsg($("#tokenMsg"), "请先粘贴令牌。", "err"); return; }
+  token = v; store.set("dealbot.token", v); $("#token").value = "";
+  const ok = await checkToken();
+  setMsg($("#tokenMsg"), ok ? "已保存，可以修改设置了。" : "令牌不可用：请检查权限是否包含本仓库的 Contents 读写。", ok ? "ok" : "err");
+  await loadConfig(); loadRuns();
+};
+$("#btnTokenClear").onclick = async () => {
+  token = ""; store.set("dealbot.token", null); await checkToken();
+  setMsg($("#tokenMsg"), "已清除，本设备不再保存令牌。", "ok"); await loadConfig();
+};
+
+/* ------------------------------------------------------------------- init */
+const digestSel = $("#s-digest");
+digestSel.innerHTML = `<option value="-1">不发送</option>` + Array.from({ length: 24 }, (_, h) => `<option value="${h}">${h}:00 以后</option>`).join("");
+selectTab(document.getElementById(store.get("dealbot.tab") || "tab-board") || tabs[0]);
+checkToken();
+loadBoard();
+loadConfig();
+</script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+{
+  "settings": {
+    "interval_minutes": 30,
+    "daily_digest_hour": 9,
+    "hst_pct": 13,
+    "price_drop_cad": 30,
+    "urgent_discount_pct": 20,
+    "max_pushes_per_run": 6,
+    "skip_out_of_stock": true
+  },
+  "products": [
+    {
+      "id": "iphone-air",
+      "name": "iPhone Air",
+      "enabled": true,
+      "query": "iphone air",
+      "include": ["iphone air", "iphone 17 air"],
+      "exclude": [
+        "for iphone air", "for apple iphone air", "compatible with", "screen protector",
+        "tempered glass", "case for", "replacement", "dummy", "empty box", "box only",
+        "for parts", "broken", "cracked", "icloud locked", "blacklisted",
+        "wanted", "looking for", "wtb", "in search of"
+      ],
+      "min_price": 500,
+      "max_price": 3500,
+      "msrp": {"256": 1449, "512": 1749, "1024": 2049},
+      "max_pct": {"new": 90, "openbox": 85, "refurb": 85, "used": 70},
+      "target_price": {"256": 1249, "512": 1499, "1024": 1799}
+    }
+  ],
+  "sources": [
+    {"id": "rfd", "name": "RedFlagDeals 热门优惠", "type": "rfd", "enabled": true,
+     "url": "https://forums.redflagdeals.com/feed/forum/9"},
+    {"id": "bestbuy", "name": "Best Buy Canada", "type": "bestbuy", "enabled": true},
+    {"id": "apple-refurb", "name": "Apple 官方翻新 iPhone", "type": "page", "enabled": true,
+     "url": "https://www.apple.com/ca/shop/refurbished/iphone", "condition": "refurb"},
+    {"id": "amazon", "name": "Amazon.ca", "type": "amazon", "enabled": true,
+     "url": "https://www.amazon.ca/s?k={query}"},
+    {"id": "walmart", "name": "Walmart.ca", "type": "page", "enabled": true,
+     "url": "https://www.walmart.ca/en/search?q={query}"},
+    {"id": "staples", "name": "Staples.ca", "type": "page", "enabled": true,
+     "url": "https://www.staples.ca/search/suggest.json?q={query}&resources%5Btype%5D=product&resources%5Blimit%5D=10"},
+    {"id": "kijiji", "name": "Kijiji 大多伦多", "type": "page", "enabled": true,
+     "url": "https://www.kijiji.ca/b-gta-greater-toronto-area/{query_slug}/k0l1700272",
+     "condition": "used", "cents_over": 10000}
+  ]
+}

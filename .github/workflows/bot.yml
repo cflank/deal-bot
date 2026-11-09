@@ -1,0 +1,61 @@
+name: 比价机器人
+
+on:
+  schedule:
+    # 每 10 分钟唤醒一次；实际检查间隔由设置页的“检查频率”决定（未到时间会直接跳过）。
+    - cron: "*/10 * * * *"
+  push:
+    branches: [main]
+    paths: [config.json]      # 在设置页保存后立即按新设置跑一次
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "运行方式"
+        type: choice
+        default: run
+        options: [run, digest, test-notify]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deal-bot
+  cancel-in-progress: false
+
+jobs:
+  bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 取上次的状态和看板数据
+        run: |
+          mkdir -p data
+          if git ls-remote --exit-code --heads origin data >/dev/null; then
+            git fetch -q --depth=1 origin data
+            git archive FETCH_HEAD | tar -x -C data
+          fi
+
+      - name: 运行
+        id: bot
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
+          MODE: ${{ inputs.mode || 'run' }}
+          TRIGGER: ${{ github.event_name }}
+        run: python3 -m dealbot --mode "$MODE" --trigger "$TRIGGER" --data data
+
+      - name: 发布到 data 分支（看板读取）
+        if: steps.bot.outputs.ran == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd data
+          rm -rf .git
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data
