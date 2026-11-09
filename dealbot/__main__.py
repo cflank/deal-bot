@@ -41,13 +41,17 @@ def main(argv=None) -> int:
     notifier = Notifier(dry_run=args.dry_run)
     if not notifier.configured:
         print("未设置 BARK_KEY：通知只打印到终端。")
+    else:
+        print(f"Bark：已配置 {len(notifier.devices)} 台手机。")
 
     if args.mode == "test-notify":
-        notifier.send("✅ 比价机器人测试推送", "能看到这条说明 Bark 推送已配好。", priority=5)
+        total = len(notifier.devices)
+        notifier.send("✅ 比价机器人测试推送", f"能看到这条说明 Bark 推送已配好（共 {total} 台手机）。", priority=5)
         _set_output("ran", "false")
         if notifier.errors or not notifier.configured:
-            print("测试推送没有发出：" + ("；".join(notifier.errors) or "未设置 BARK_KEY"))
+            print("测试推送有手机没收到：" + ("；".join(notifier.errors) or "未设置 BARK_KEY"))
             return 1
+        print(f"测试推送已发到全部 {total} 台手机。")
         return 0
 
     cfg = json.loads(Path(args.config).read_text("utf-8"))

@@ -244,6 +244,14 @@ class BarkTests(unittest.TestCase):
         self.assertEqual(parse_key("https://api.day.app/abc123/这里改成你自己的推送内容"), ("abc123", "https://api.day.app"))
         self.assertEqual(parse_key("https://bark.example.com/k9/"), ("k9", "https://bark.example.com"))
 
+    def test_multiple_devices(self):
+        from dealbot.notify import parse_devices
+        raw = "https://api.day.app/KEY1/这里改成你自己的推送内容\nKEY2, https://bark.example.com/KEY3/\nKEY2"
+        self.assertEqual(parse_devices(raw), [("KEY1", "https://api.day.app"), ("KEY2", "https://api.day.app"),
+                                              ("KEY3", "https://bark.example.com")])
+        self.assertEqual(parse_devices("K1；K2", "https://my.bark"), [("K1", "https://my.bark"), ("K2", "https://my.bark")])
+        self.assertEqual(parse_devices("  \n "), [])
+
     def test_payload_and_failure(self):
         from unittest import mock
         from dealbot import notify
@@ -256,19 +264,25 @@ class BarkTests(unittest.TestCase):
             def __exit__(self, *a): return False
 
         def fake_open(req, timeout):
-            captured.append((req.full_url, json.loads(req.data.decode("utf-8"))))
-            return Resp(b'{"code":200,"message":"success"}' if len(captured) == 1 else b'{"code":400,"message":"bad key"}')
+            body = json.loads(req.data.decode("utf-8"))
+            captured.append((req.full_url, body))
+            if body["device_key"] == "BAD":
+                return Resp(b'{"code":400,"message":"failed to get device token"}')
+            return Resp(b'{"code":200,"message":"success"}')
 
-        n = notify.Notifier(key="https://api.day.app/KEY1/", server="")
+        n = notify.Notifier(key="https://api.day.app/KEY1/\nBAD\nhttps://bark.example.com/KEY3", server="")
         with mock.patch.object(notify.urllib.request, "urlopen", fake_open):
             n.send("标题", "正文", click="https://x", priority=5, group="iPhone Air")
             n.send("每日", "正文", priority=2)
+        self.assertEqual(len(captured), 6)  # 2 messages x 3 phones
         url, body = captured[0]
         self.assertEqual(url, "https://api.day.app/push")
-        self.assertEqual((body["device_key"], body["level"], body["url"], body["group"]), ("KEY1", "timeSensitive", "https://x", "iPhone Air"))
-        self.assertEqual(captured[1][1]["level"], "passive")
-        self.assertEqual(len(n.errors), 1)
-        self.assertIn("bad key", n.errors[0])
+        self.assertEqual((body["device_key"], body["level"], body["url"], body["group"]),
+                         ("KEY1", "timeSensitive", "https://x", "iPhone Air"))
+        self.assertEqual(captured[2][0], "https://bark.example.com/push")
+        self.assertEqual(captured[3][1]["level"], "passive")
+        self.assertEqual(len(n.errors), 2)  # the bad phone, once per message; the others still got it
+        self.assertTrue(all(e.startswith("第 2 台手机") and "BAD" not in e for e in n.errors))
 
 
 class CliTests(unittest.TestCase):

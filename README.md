@@ -12,6 +12,7 @@
 1. **手机推送**：iPhone 在 App Store 装 Bark，打开后复制首页上的推送网址
    （形如 `https://api.day.app/你的Key/…`）。然后在本仓库 Settings → Secrets and variables →
    Actions → New repository secret，名字 `BARK_KEY`，值直接粘贴整段网址或其中的 Key 都可以。
+   **多台手机**：每台手机的网址或 Key 各占一行（也可以用逗号隔开），每条推送会发给所有手机。
    自建 Bark 服务器的话，再加一个 `BARK_SERVER`（如 `https://bark.example.com`）。
 2. **开启网页**：Settings → Pages → Build and deployment → Source 选
    “Deploy from a branch”，Branch 选 `main`，文件夹选 `/docs`，保存。
