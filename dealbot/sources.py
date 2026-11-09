@@ -174,10 +174,10 @@ def source_page(cfg: dict) -> list[Offer]:
     url = cfg["url"]
     text = fetch(url)
     offers: dict[str, Offer] = {}
-    cents_over = cfg.get("cents_over")
+    cents = cfg.get("cents")  # e.g. Kijiji reports every price in cents
     for blob in extract_json_blobs(text):
         for title, price, link, stock in walk_products(blob, url):
-            if cents_over and price > cents_over:
+            if cents:
                 price = price / 100.0
             key = link or title
             if key not in offers or price < offers[key].price:

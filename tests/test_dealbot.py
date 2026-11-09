@@ -121,6 +121,20 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parse_feed(atom, "RFD")[0].link, "https://forums.redflagdeals.com/y-2/")
 
 
+class CentsTests(unittest.TestCase):
+    def test_kijiji_cents(self):
+        from dealbot import sources
+        page = json.dumps({"listings": [{"title": "iPhone Air 256GB", "price": {"amount": 85000}, "url": "/v/1"},
+                                        {"title": "iPhone Air case", "price": {"amount": 500}, "url": "/v/2"}]})
+        orig = sources.fetch
+        sources.fetch = lambda url, **kw: page
+        try:
+            offers = sources.source_page({"name": "K", "url": "https://www.kijiji.ca/b", "cents": True})
+        finally:
+            sources.fetch = orig
+        self.assertEqual(sorted(o.price for o in offers), [5.0, 850.0])
+
+
 class CollectTests(unittest.TestCase):
     def test_templating_matching_and_stock(self):
         calls = []

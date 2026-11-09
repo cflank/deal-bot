@@ -42,6 +42,6 @@
      "url": "https://www.staples.ca/search/suggest.json?q={query}&resources%5Btype%5D=product&resources%5Blimit%5D=10"},
     {"id": "kijiji", "name": "Kijiji 大多伦多", "type": "page", "enabled": true,
      "url": "https://www.kijiji.ca/b-gta-greater-toronto-area/{query_slug}/k0l1700272",
-     "condition": "used", "cents_over": 10000}
+     "condition": "used", "cents": true}
   ]
 }
