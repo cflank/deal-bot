@@ -206,7 +206,7 @@ def run(cfg: dict, state: dict, notifier: Notifier, *, now: datetime | None = No
             lines.append("\n暂时抓取失败：" + "、".join(failed))
         names = "、".join(products[pid]["name"] for pid in fresh)
         first = next((assessed[pid][0][0].url for pid in fresh if assessed[pid]), None)
-        notifier.send(f"🤖 开始监控：{names}"[:200], "\n".join(lines), click=first, tags=["robot"])
+        notifier.send(f"🤖 开始监控：{names}"[:200], "\n".join(lines), click=first)
         started.update(fresh)
 
     pushes = 0
@@ -214,7 +214,7 @@ def run(cfg: dict, state: dict, notifier: Notifier, *, now: datetime | None = No
         if p.product in fresh or pushes >= max_push:
             continue
         notifier.send(f"RFD 新帖：{p.title}"[:200], f"{products[p.product]['name']}\n{p.title}\n{p.link}",
-                      click=p.link or None, priority=4, tags=["newspaper"])
+                      click=p.link or None, priority=4, group=products[p.product]["name"])
         pushes += 1
     rest = []
     for o, a in to_alert:
@@ -223,12 +223,12 @@ def run(cfg: dict, state: dict, notifier: Notifier, *, now: datetime | None = No
             continue
         urgent = a.discount_pct is not None and a.discount_pct >= st["urgent_discount_pct"]
         notifier.send(headline(o, a, products[o.product]), describe(o, a, products[o.product], st["hst_pct"]),
-                      click=o.url, priority=5 if urgent else 4, tags=["fire"])
+                      click=o.url, priority=5 if urgent else 4, group=products[o.product]["name"])
         pushes += 1
     if rest:
         notifier.send(f"另有 {len(rest)} 个报价达到提醒条件",
                       "\n".join(f"{products[o.product]['name']} " + short_line(i, o, a)
-                                for i, (o, a) in enumerate(rest[:10], 1)), tags=["moneybag"])
+                                for i, (o, a) in enumerate(rest[:10], 1)))
 
     prev_health = state.get("health", {})
     for name, h in health.items():
@@ -287,7 +287,7 @@ def send_digest(products, assessed, health, notifier: Notifier) -> None:
     bad = [f"{n}（连续 {h['fails']} 次）" for n, h in health.items() if not h["ok"]]
     lines.append(f"\n数据源正常 {len(ok)}/{len(health)}" + ("；失败：" + "、".join(bad) if bad else ""))
     first = next((items[0][0].url for items in assessed.values() if items), None)
-    notifier.send("📊 每日行情", "\n".join(lines), click=first, priority=2, tags=["bar_chart"])
+    notifier.send("📊 每日行情", "\n".join(lines), click=first, priority=2)
 
 
 # ------------------------------------------------------------------ outputs

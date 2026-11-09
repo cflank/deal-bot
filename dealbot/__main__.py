@@ -39,12 +39,15 @@ def main(argv=None) -> int:
     args = ap.parse_args(argv)
 
     notifier = Notifier(dry_run=args.dry_run)
-    if not notifier.topic:
-        print("未设置 NTFY_TOPIC：通知只打印到终端。")
+    if not notifier.configured:
+        print("未设置 BARK_KEY：通知只打印到终端。")
 
     if args.mode == "test-notify":
-        notifier.send("✅ 比价机器人测试推送", "能看到这条说明手机推送已配好。", tags=["white_check_mark"])
+        notifier.send("✅ 比价机器人测试推送", "能看到这条说明 Bark 推送已配好。", priority=5)
         _set_output("ran", "false")
+        if notifier.errors or not notifier.configured:
+            print("测试推送没有发出：" + ("；".join(notifier.errors) or "未设置 BARK_KEY"))
+            return 1
         return 0
 
     cfg = json.loads(Path(args.config).read_text("utf-8"))
@@ -69,9 +72,9 @@ def main(argv=None) -> int:
     latest = latest_json(cfg, state)
     history = state.get("history", {})
     state.pop("_assessed", None)
-    if not notifier.topic:
+    if not notifier.configured:
         # Nothing was actually pushed: keep the startup summary and current deals
-        # pending so they go out once NTFY_TOPIC is configured.
+        # pending so they go out once BARK_KEY is configured.
         state.pop("started_products", None)
         state.pop("last_digest", None)
         for rec in state.get("offers", {}).values():

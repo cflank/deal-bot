@@ -10,7 +10,10 @@ from dealbot.sources import Post, extract_json_blobs, parse_amazon, parse_feed, 
 
 ROOT = Path(__file__).resolve().parent.parent
 CFG = json.loads((ROOT / "config.json").read_text("utf-8"))
-AIR = CFG["products"][0]
+# Fixed test product, so editing config.json from the settings page never breaks tests.
+AIR = {**CFG["products"][0], "msrp": {"256": 1449, "512": 1749, "1024": 2049},
+       "max_pct": {"new": 90, "openbox": 85, "refurb": 85, "used": 70},
+       "target_price": {"256": 1249, "512": 1499, "1024": 1799}}
 INC, EXC = AIR["include"], AIR["exclude"]
 PODS = {"id": "pods", "name": "AirPods Pro 3", "query": "airpods pro 3", "include": ["airpods pro 3"],
         "exclude": ["case for"], "min_price": 150, "msrp": {"default": 329}, "max_pct": {"new": 80}}
@@ -180,7 +183,7 @@ class RunnerTests(unittest.TestCase):
         return list(offers), list(posts), health
 
     def test_first_run_then_alerts(self):
-        state, n = {}, Notifier(topic="", dry_run=True)
+        state, n = {}, Notifier(key="", dry_run=True)
         deal = offer("Apple iPhone Air 256GB Unlocked", 1199, "https://bb/1")
         meh = offer("Apple iPhone Air 512GB Unlocked", 1749, "https://bb/2")
         post = Post("RFD", "t1", "iPhone Air $999 at Costco", "https://rfd/1", product="iphone-air")
@@ -208,7 +211,7 @@ class RunnerTests(unittest.TestCase):
         self.assertIn("AirPods Pro 3 $249 (-24%)", titles)
 
     def test_new_product_later_gets_its_own_summary(self):
-        state, n = {}, Notifier(topic="", dry_run=True)
+        state, n = {}, Notifier(key="", dry_run=True)
         cfg1 = {"settings": {}, "products": [AIR], "sources": []}
         runner.run(cfg1, state, n, now=self.morning, fetched=self.fetched([offer("iPhone Air 256GB", 1199)]))
         n.sent.clear()
@@ -217,13 +220,13 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual([m["title"] for m in n.sent], ["🤖 开始监控：AirPods Pro 3"])
 
     def test_digest_history_and_outputs(self):
-        state, n = {"started_products": ["iphone-air", "pods"]}, Notifier(topic="", dry_run=True)
+        state, n = {"started_products": ["iphone-air", "pods"]}, Notifier(key="", dry_run=True)
         later = datetime(2026, 11, 20, 15, 0, tzinfo=timezone.utc)  # 10:00 Toronto
         offers = [offer("Apple iPhone Air 256GB", 1449, "https://bb/1"),
                   offer("Apple iPhone Air 256GB", 1100, "https://kj/1", condition="used")]
         runner.run(self.cfg, state, n, now=later, fetched=self.fetched(offers, ok=False))
         self.assertEqual([m["title"] for m in n.sent], ["📊 每日行情"])
-        self.assertIn("AMZ", n.sent[0]["message"])
+        self.assertIn("AMZ", n.sent[0]["body"])
         self.assertEqual(state["history"]["iphone-air"]["2026-11-20"], {"256GB": 1449, "256GB 二手": 1100})
         latest = runner.latest_json(self.cfg, state)
         self.assertEqual(len(latest["offers"]), 2)
@@ -234,13 +237,47 @@ class RunnerTests(unittest.TestCase):
         self.assertEqual(n.sent, [])
 
 
+class BarkTests(unittest.TestCase):
+    def test_parse_key(self):
+        from dealbot.notify import parse_key
+        self.assertEqual(parse_key("abc123"), ("abc123", ""))
+        self.assertEqual(parse_key("https://api.day.app/abc123/这里改成你自己的推送内容"), ("abc123", "https://api.day.app"))
+        self.assertEqual(parse_key("https://bark.example.com/k9/"), ("k9", "https://bark.example.com"))
+
+    def test_payload_and_failure(self):
+        from unittest import mock
+        from dealbot import notify
+        captured = []
+
+        class Resp:
+            def __init__(self, body): self.body = body
+            def read(self): return self.body
+            def __enter__(self): return self
+            def __exit__(self, *a): return False
+
+        def fake_open(req, timeout):
+            captured.append((req.full_url, json.loads(req.data.decode("utf-8"))))
+            return Resp(b'{"code":200,"message":"success"}' if len(captured) == 1 else b'{"code":400,"message":"bad key"}')
+
+        n = notify.Notifier(key="https://api.day.app/KEY1/", server="")
+        with mock.patch.object(notify.urllib.request, "urlopen", fake_open):
+            n.send("标题", "正文", click="https://x", priority=5, group="iPhone Air")
+            n.send("每日", "正文", priority=2)
+        url, body = captured[0]
+        self.assertEqual(url, "https://api.day.app/push")
+        self.assertEqual((body["device_key"], body["level"], body["url"], body["group"]), ("KEY1", "timeSensitive", "https://x", "iPhone Air"))
+        self.assertEqual(captured[1][1]["level"], "passive")
+        self.assertEqual(len(n.errors), 1)
+        self.assertIn("bad key", n.errors[0])
+
+
 class CliTests(unittest.TestCase):
     def test_without_topic_alerts_stay_pending(self):
         import os, tempfile
         from dealbot import __main__ as cli
         orig = runner.collect
         runner.collect = lambda cfg: ([offer("iPhone Air 256GB", 1099, "https://bb/1")], [], {"BB": {"ok": True, "raw": 1, "matched": 1}})
-        old = os.environ.pop("NTFY_TOPIC", None)
+        old = os.environ.pop("BARK_KEY", None)
         try:
             with tempfile.TemporaryDirectory() as d:
                 cli.main(["--data", d])
@@ -251,7 +288,7 @@ class CliTests(unittest.TestCase):
         finally:
             runner.collect = orig
             if old is not None:
-                os.environ["NTFY_TOPIC"] = old
+                os.environ["BARK_KEY"] = old
 
     def test_interval_skip(self):
         from dealbot.__main__ import _due

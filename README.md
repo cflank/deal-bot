@@ -1,7 +1,7 @@
 # 比价机器人（多伦多 / 加拿大）
 
 盯你想买的商品（默认 iPhone Air），定时扫描加拿大各渠道报价，到了你设的价格就用
-[ntfy](https://ntfy.sh) 推送到手机。有一个网页可以看行情、改设置。
+[Bark](https://bark.day.app)（iPhone）推送到手机。有一个网页可以看行情、改设置。
 
 - **看板和设置页**：<https://cflank.github.io/deal-bot/>（启用 GitHub Pages 后可用）
 - **运行**：GitHub Actions 定时运行，公开仓库免费，不用开电脑
@@ -9,9 +9,10 @@
 
 ## 一次性设置（约 10 分钟）
 
-1. **手机推送**：手机装 ntfy App，订阅一个别人猜不到的主题名（相当于密码）。
-   然后在本仓库 Settings → Secrets and variables → Actions → New repository secret，
-   名字 `NTFY_TOPIC`，值填主题名。
+1. **手机推送**：iPhone 在 App Store 装 Bark，打开后复制首页上的推送网址
+   （形如 `https://api.day.app/你的Key/…`）。然后在本仓库 Settings → Secrets and variables →
+   Actions → New repository secret，名字 `BARK_KEY`，值直接粘贴整段网址或其中的 Key 都可以。
+   自建 Bark 服务器的话，再加一个 `BARK_SERVER`（如 `https://bark.example.com`）。
 2. **开启网页**：Settings → Pages → Build and deployment → Source 选
    “Deploy from a branch”，Branch 选 `main`，文件夹选 `/docs`，保存。
    一两分钟后打开 <https://cflank.github.io/deal-bot/>。
@@ -41,6 +42,8 @@
 - **RFD 新帖**：标题匹配任一商品的 RedFlagDeals 新帖。
 - **每日行情**：每天设定的时间后发一次，内容是每个商品最划算的报价和数据源状态。
 - **新加的商品**：第一次只发一条汇总，不刷屏。
+- **Bark 提醒级别**：折扣达到“最高优先级”门槛的用“时效性通知”（专注模式下也会响）；
+  每日行情静默送达；其余为普通通知。每个商品的推送在 Bark 里自动分组。
 
 ## 数据源
 
@@ -53,7 +56,7 @@ RedFlagDeals、Best Buy Canada、Apple 官方翻新、Amazon.ca、Walmart.ca、S
 ```
 cron（每 10 分钟唤醒）→ 未到设定的检查间隔就跳过
 → 抓取各数据源 → 按商品关键词过滤 → 识别容量/成色/运营商 → 和原价比
-→ 对比上次状态决定是否推送 → ntfy
+→ 对比上次状态决定是否推送 → Bark
 → 状态、看板数据写到 data 分支（latest.json、history.json、state.json）
 网页：读 data 分支显示看板；读写 main 分支的 config.json 做设置
 ```
