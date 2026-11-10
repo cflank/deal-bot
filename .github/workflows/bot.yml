@@ -24,6 +24,9 @@ concurrency:
 
 jobs:
   bot:
+    # 定时检查交给 VPS 后，在仓库 Settings → Secrets and variables → Actions → Variables
+    # 新建变量 GH_SCHEDULE=off，即可关闭这里的定时运行（网页按钮和保存设置触发的运行不受影响）。
+    if: github.event_name != 'schedule' || vars.GH_SCHEDULE != 'off'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
