@@ -62,6 +62,19 @@ cron（每 10 分钟唤醒）→ 未到设定的检查间隔就跳过
 网页：读 data 分支显示看板；读写 main 分支的 config.json 做设置
 ```
 
+## 部署到 VPS（可选，定时更准）
+
+GitHub 的定时任务经常被推迟或跳过。用一台 Ubuntu 24.04 / Debian 12 的 VPS（1 vCPU、1GB 内存就够）
+以 root 登录后运行：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/cflank/deal-bot/main/deploy/install.sh | bash
+```
+
+脚本会依次：安装依赖 → 让你粘贴 Bark 网址 → 生成部署密钥并提示你加到仓库 Deploy keys（勾选写权限）→
+发测试推送 → 立即检查一次 → 启动每 5 分钟唤醒的 systemd 定时器。完成后在仓库 Actions 变量里设
+`GH_SCHEDULE=off` 关掉 GitHub 的定时运行。日志：`journalctl -u dealbot -n 100`。
+
 ## 本地运行
 
 ```bash
