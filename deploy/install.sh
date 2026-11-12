@@ -2,6 +2,11 @@
 # 在 VPS 上安装比价机器人（Ubuntu 22.04+/Debian 12+，以 root 运行）。可重复运行：已有的配置会保留。
 #   curl -fsSL https://raw.githubusercontent.com/cflank/deal-bot/main/deploy/install.sh | sudo bash
 # 重新填写 Bark Key：在上面的命令末尾加 `-s -- --reset-bark`
+#
+# 无交互（给自动化 / AI 用）：
+#   bash install.sh --non-interactive --bark-file /root/bark.txt
+#   bark.txt 每行一个 Bark 网址或 Key，读入后自动删除。
+#   部署密钥还没加到 GitHub 时，会打印公钥并以退出码 3 结束；加好后重跑同一命令（可省略 --bark-file）即可继续。
 set -euo pipefail
 
 REPO_HTTPS="https://github.com/cflank/deal-bot.git"
@@ -10,7 +15,18 @@ APP_DIR="/opt/deal-bot"
 CONF_DIR="/etc/dealbot"
 SVC_USER="dealbot"
 RESET_BARK=0
-[[ "${1:-}" == "--reset-bark" ]] && RESET_BARK=1
+INTERACTIVE=1
+BARK_FILE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --reset-bark) RESET_BARK=1 ;;
+    --non-interactive) INTERACTIVE=0 ;;
+    --bark-file) BARK_FILE="${2:-}"; shift ;;
+    *) echo "未知参数：$1" >&2; exit 1 ;;
+  esac
+  shift
+done
+if [[ $INTERACTIVE -eq 1 ]] && ! { : </dev/tty; } 2>/dev/null; then INTERACTIVE=0; fi
 
 say()  { printf '\n\033[1;34m==> %s\033[0m\n' "$*"; }
 ok()   { printf '\033[1;32m✔ %s\033[0m\n' "$*"; }
@@ -19,7 +35,6 @@ ask()  { local __v; read -r -p "$1" __v </dev/tty || true; printf '%s' "$__v"; }
 as_user() { runuser -u "$SVC_USER" -- env GIT_SSH_COMMAND="ssh -i $CONF_DIR/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" "$@"; }
 
 [[ $EUID -eq 0 ]] || die "请用 root 运行（或在命令前加 sudo）。"
-[[ -r /dev/tty ]] || die "需要在交互式终端里运行（脚本会提问）。"
 
 say "1/7 安装依赖"
 if command -v apt-get >/dev/null; then
@@ -47,8 +62,33 @@ ok "代码在 $APP_DIR"
 
 say "3/7 Bark 推送 Key"
 install -d -m 750 -o root -g "$SVC_USER" "$CONF_DIR"
-if [[ -f "$CONF_DIR/env" && $RESET_BARK -eq 0 ]]; then
+clean_key() {  # 去掉空白和引号等字符，只保留 https://服务器/Key（Bark 示例网址后面的中文提示会被去掉）
+  local k="${1//[[:space:]\"\'\$\`\\]/}"
+  if [[ "$k" =~ ^(https?://[^/]+/[^/?#]+) ]]; then k="${BASH_REMATCH[1]}"; fi
+  printf '%s' "$k"
+}
+save_keys() {
+  umask 027
+  printf 'BARK_KEY="%s"\n' "$(IFS=,; echo "$*")" > "$CONF_DIR/env"
+  chown root:"$SVC_USER" "$CONF_DIR/env"; chmod 640 "$CONF_DIR/env"
+  ok "已保存 $# 台手机（$CONF_DIR/env，只有 root 和 $SVC_USER 可读）"
+}
+if [[ -n "$BARK_FILE" ]]; then
+  [[ -r "$BARK_FILE" ]] || die "读不到 $BARK_FILE"
+  keys=()
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    read -ra parts <<< "${line//,/ }"
+    for part in "${parts[@]}"; do
+      k="$(clean_key "$part")"; [[ -n "$k" ]] && keys+=("$k")
+    done
+  done < "$BARK_FILE"
+  rm -f "$BARK_FILE"
+  [[ ${#keys[@]} -gt 0 ]] || die "$BARK_FILE 里没有 Bark Key。"
+  save_keys "${keys[@]}"
+elif [[ -f "$CONF_DIR/env" && $RESET_BARK -eq 0 ]]; then
   ok "已存在 $CONF_DIR/env，沿用（要重填请加 --reset-bark）"
+elif [[ $INTERACTIVE -eq 0 ]]; then
+  die "无交互模式需要用 --bark-file 提供 Bark Key。"
 else
   echo "打开 iPhone 上的 Bark，复制首页的推送网址（https://api.day.app/…），粘贴到下面。"
   echo "多台手机就一台一台粘贴，全部填完后直接按回车。输入内容不会显示在屏幕上。"
@@ -56,17 +96,12 @@ else
   while :; do
     read -r -s -p "第 $(( ${#keys[@]} + 1 )) 台手机的 Bark 网址或 Key（直接回车结束）：" k </dev/tty || true
     echo
-    k="${k//[[:space:]\"\'\$\`\\]/}"
+    k="$(clean_key "$k")"
     [[ -z "$k" ]] && break
-    # 只保留 https://服务器/Key，去掉 Bark 示例网址后面的中文提示文字
-    if [[ "$k" =~ ^(https?://[^/]+/[^/?#]+) ]]; then k="${BASH_REMATCH[1]}"; fi
     keys+=("$k")
   done
   [[ ${#keys[@]} -gt 0 ]] || die "至少需要一个 Bark Key。"
-  umask 027
-  printf 'BARK_KEY="%s"\n' "$(IFS=,; echo "${keys[*]}")" > "$CONF_DIR/env"
-  chown root:"$SVC_USER" "$CONF_DIR/env"; chmod 640 "$CONF_DIR/env"
-  ok "已保存 ${#keys[@]} 台手机（$CONF_DIR/env，只有 root 和 $SVC_USER 可读）"
+  save_keys "${keys[@]}"
 fi
 
 say "4/7 GitHub 部署密钥（用于把看板数据推到 data 分支）"
@@ -93,6 +128,10 @@ else
   echo
   cat "$CONF_DIR/deploy_key.pub"
   echo
+  if [[ $INTERACTIVE -eq 0 ]]; then
+    echo "添加好之后，重新运行同一条命令即可继续（可省略 --bark-file）。"
+    exit 3
+  fi
   for attempt in 1 2 3 4 5; do
     ask "添加好后按回车测试（第 $attempt 次）…" >/dev/null
     if push_test; then ok "部署密钥已可写入仓库"; break; fi
