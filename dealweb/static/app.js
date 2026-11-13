@@ -263,6 +263,10 @@ async function viewProduct(id) {
           <input name="min_price" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.min_price)}" placeholder="最低 $" aria-label="最低价">
           <input name="max_price" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.max_price)}" placeholder="最高 $" aria-label="最高价"></div>
         <p class="hint">范围外的直接忽略。设个最低价能挡掉大部分配件。</p></div>
+      <div class="field"><label for="skip_below">太便宜的当成配件忽略</label>
+        <select id="skip_below" name="skip_below">${[["", "不过滤"], ["5", "不到原价的五分之一"], ["4", "不到原价的四分之一"], ["3", "不到原价的三分之一"], ["2", "不到原价的一半"]].map(([v, t]) =>
+          `<option value="${v}"${String(isNew ? 4 : p.skip_below || "") === v ? " selected" : ""}>${t}</option>`).join("")}</select>
+        <p class="hint">比如手机壳标题里也有 iPhone Air，价格却只有几块钱。低于这条线的报价不上看板、不提醒。原价查不到的商品不受影响，仍要靠最低价。</p></div>
       <div class="field"><label for="alert_below">提醒价</label>
         <input id="alert_below" name="alert_below" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.alert_below)}" placeholder="$">
         <p class="hint">价格低于或等于这个数就推送到你手机。</p></div>

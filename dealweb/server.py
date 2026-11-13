@@ -83,8 +83,10 @@ def clean_product(data: dict, old: dict | None = None) -> dict:
         cfg[key] = _price(data.get(key))
     if cfg["min_price"] and cfg["max_price"] and cfg["min_price"] > cfg["max_price"]:
         raise ApiError("最低价不能高于最高价")
+    # skip_below = N: offers under 1/N of the reference price are dropped as accessories (dealweb.worker).
+    cfg["skip_below"] = next((n for n in (2, 3, 4, 5) if str(data.get("skip_below")) == str(n)), None)
     msrp = data.get("msrp") or {}
-    tiers = {str(int(k)): _price(v) for k, v in msrp.items() if str(k).isdigit() and _price(v)}
+    tiers ={str(int(k)): _price(v) for k, v in msrp.items() if str(k).isdigit() and _price(v)}
     cfg["msrp"] = dict(list(tiers.items())[:8]) or ({"default": _price(msrp.get("default"))}
                                                      if _price(msrp.get("default")) else {})
     # Per-condition "alert at or below N% of the reference price" (dealbot.matching.assess).

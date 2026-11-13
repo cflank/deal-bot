@@ -8,7 +8,7 @@ import urllib.parse
 from datetime import datetime, timezone
 
 from dealbot import runner, sources as bot_sources
-from dealbot.matching import storage_sizes
+from dealbot.matching import assess, storage_sizes
 from dealbot.notify import Notifier
 
 from . import auth, db, stores
@@ -139,13 +139,23 @@ def run_user(con, user, sources: list[dict], *, now: datetime | None = None, for
             by_id = {p["id"]: p for p in products}
             skip_oos = runner.settings(cfg)["skip_out_of_stock"]
 
+            for p in products:
+                p["msrp"] = p.get("msrp") or auto.get(p["id"], {})
+
+            def too_cheap(o, p) -> bool:
+                """skip_below = 4: under a quarter of the reference price is an accessory, not a bargain.
+                Not applied to a brand store's own list price, where a deep markdown is the same item."""
+                if not p.get("skip_below") or o.extra.get("list_price"):
+                    return False
+                ref = assess(o, p).msrp
+                return bool(ref) and o.price < ref / p["skip_below"]
+
             def wanted(o) -> bool:
                 p = by_id[o.product]
                 return ((not p.get("conditions") or o.condition in p["conditions"])
                         and o.price <= (p.get("max_price") or 10**9)
-                        and not (skip_oos and o.in_stock is False))
-            for p in products:
-                p["msrp"] = p.get("msrp") or auto.get(p["id"], {})
+                        and not (skip_oos and o.in_stock is False)
+                        and not too_cheap(o, p))
             state = runner.run(cfg, state, notifier, now=now, force_digest=force_digest,
                                fetched=([o for o in offers if wanted(o)], posts, health))
             state["auto_msrp"], state["auto_msrp_sig"] = auto, {k: sig[k] for k in auto}

@@ -272,6 +272,30 @@ class WorkerTests(Base):
             stores.Notifier.send = old
         self.assertEqual(sent, [(1, "品牌活动：Brand")])                                       # user 2 switched it off
 
+    def test_offers_far_below_the_reference_price_are_dropped_as_accessories(self):
+        self.register("4165550207")
+        base = {"name": "Phone", "max_pct": {"new": 80}}
+        for extra in ({"skip_below": "4"}, {}):                      # product 1 filters, product 2 does not
+            cfg = server.clean_product({**base, **extra})
+            self.con.execute("INSERT INTO products(user_id, cfg, created_at) VALUES(1,?,0)", (json.dumps(cfg),))
+        self.con.commit()
+        self.assertEqual(server.clean_product({**base, "skip_below": "7"})["skip_below"], None)
+        shop = json.dumps({"products": [{"name": "Phone 256GB", "price": 1600, "url": "/p/phone"},
+                                        {"name": "Case for Phone", "price": 4.95, "url": "/p/case"},
+                                        {"name": "Phone 256GB open box", "price": 500, "url": "/p/ob"}]})
+        brand = json.dumps({"resources": {"results": {"products": [
+            {"title": "Phone sleeve", "price": "10.00", "compare_at_price_min": "100.00", "url": "/s"}]}}})
+        sources = [{"id": "s", "name": "S", "type": "page", "url": "https://s.example/?q={query}", "reference": "product"},
+                   {"id": "b", "name": "B", "type": "shopify", "domain": "b.example", "reference": "offer"}]
+        old, bot_sources.fetch = bot_sources.fetch, lambda url, **kw: brand if "b.example" in url else shop
+        try:
+            latest = worker.run_user(self.con, self.con.execute("SELECT * FROM users").fetchone(), sources)
+        finally:
+            bot_sources.fetch = old
+        urls = {pid: sorted(o["url"].rsplit("/", 1)[1] for o in latest["offers"] if o["product"] == pid) for pid in ("p1", "p2")}
+        self.assertEqual(urls["p1"], ["ob", "phone", "s"])           # case gone; 90%-off brand item stays
+        self.assertEqual(urls["p2"], ["case", "ob", "phone", "s"])
+
     def test_import_legacy_keeps_alert_state(self):
         self.register("4165550203", kind="admin")
         d = Path(self.tmp.name)
