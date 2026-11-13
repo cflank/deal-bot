@@ -35,8 +35,8 @@ def fetch(url: str, *, accept: str | None = None, timeout: int = 25, retries: in
                 return data.decode(charset, errors="replace")
         except urllib.error.HTTPError as exc:
             last = RuntimeError(f"HTTP {exc.code}")
-            if exc.code in (401, 403, 404):
-                break  # retrying a block/404 won't help
+            if exc.code in (401, 403, 404, 429):
+                break  # retrying a block/404 won't help, and retrying a rate limit makes it worse
         except Exception as exc:  # network errors, timeouts
             last = exc
         if attempt < retries:

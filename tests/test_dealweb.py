@@ -116,6 +116,31 @@ class CoreTests(unittest.TestCase):
         self.assertFalse(assess(Offer("S", "x", 701, "u", condition="used"), cfg).qualifies)
         self.assertFalse(assess(Offer("S", "x", 700, "u", condition="new"), cfg).qualifies)
 
+    def test_post_keywords_match_whole_words_and_posts_never_crowd_out_price_alerts(self):
+        from dealbot.matching import mentions
+        self.assertTrue(mentions("[GAP] 50% off everything", ["gap"]))
+        self.assertTrue(mentions("iPhone-17 Air deal", ["iphone 17 air"]))
+        self.assertFalse(mentions("Mega Pack of batteries", ["gap"]))
+        self.assertFalse(mentions("Grassroots sale", ["roots"]))
+        from dealbot.sources import Post
+
+        class Quiet(runner.Notifier):
+            def __init__(self):
+                super().__init__(key="", dry_run=True)
+
+            def send(self, title, message, **kw):
+                self.sent.append({"title": title})
+        cfg = {"products": [{"id": "p1", "name": "x", "alert_below": 500}], "sources": []}
+        state = {"started_products": ["p1"]}
+        posts = [Post("Feed", f"id{i}", f"x deal {i}", f"https://f/{i}", product="p1") for i in range(8)]
+        offers = [Offer("S", "x", 100 + i, f"https://s/{i}", product="p1") for i in range(6)]
+        n = Quiet()
+        runner.run(cfg, state, n, fetched=(offers, posts, {}))
+        titles = [m["title"] for m in n.sent]
+        self.assertEqual(sum(t.startswith("优惠帖") for t in titles), runner.MAX_POST_PUSHES)
+        self.assertIn("另有 5 条优惠帖", titles)
+        self.assertEqual(sum("$" in t for t in titles), 6)          # all six price alerts still went out
+
     def test_reference_price_found_automatically(self):
         srcs = [{"name": "BB", "reference": "product"}, {"name": "Brand", "reference": "offer"}, {"name": "K"}]
 

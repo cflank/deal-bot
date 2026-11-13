@@ -49,6 +49,14 @@ def matches_product(title: str, include: list[str], exclude: list[str]) -> bool:
     return not any(k.lower().strip() in low for k in exclude if k.strip())
 
 
+def mentions(text: str, words: list[str]) -> bool:
+    """Whole-word match for free text such as forum post titles: "gap" must not match "Mega Pack"."""
+    def norm(s: str) -> str:
+        return " ".join(re.split(r"[\s\-_/]+", s.lower().strip()))
+    hay = norm(text)
+    return any(re.search(rf"(?<![a-z0-9]){re.escape(norm(w))}(?![a-z0-9])", hay) for w in words if w.strip())
+
+
 def detect_condition(title: str) -> str | None:
     for cond, pattern in _CONDITION_PATTERNS:
         if pattern.search(title):

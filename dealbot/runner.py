@@ -5,7 +5,9 @@ import time
 import urllib.parse
 from datetime import datetime, timedelta, timezone
 
-from .matching import CONDITION_LABELS, Assessment, Offer, assess, detect_condition, matches_product
+from .matching import CONDITION_LABELS, Assessment, Offer, assess, detect_condition, matches_product, mentions
+
+MAX_POST_PUSHES = 3   # deal posts pushed one by one per run; the rest go into a single summary
 from .notify import Notifier
 from .sources import OFFER_SOURCES, POST_SOURCES, Post
 
@@ -133,7 +135,8 @@ def collect(cfg: dict, pause: float = 1.5) -> tuple[list[Offer], list[Post], dic
                     raw += len(items)
                     for post in items:
                         for p in products:
-                            if matches_product(post.title, p.get("include") or [p["name"]], p.get("exclude") or []):
+                            words = p.get("include") or [p["name"]]
+                            if mentions(post.title, words) and matches_product(post.title, words, p.get("exclude") or []):
                                 post.product = p["id"]
                                 posts.append(post)
                                 matched += 1
@@ -219,13 +222,15 @@ def run(cfg: dict, state: dict, notifier: Notifier, *, now: datetime | None = No
         notifier.send(f"🤖 开始监控：{names}"[:200], "\n".join(lines), click=first)
         started.update(fresh)
 
-    pushes = 0
-    for p in new_posts:
-        if p.product in fresh or pushes >= max_push:
-            continue
+    # Posts have their own small allowance, so a broad keyword can never crowd out a price alert.
+    late_posts = [p for p in new_posts if p.product not in fresh]
+    for p in late_posts[:MAX_POST_PUSHES]:
         notifier.send(f"优惠帖：{p.title}"[:200], f"{products[p.product]['name']}｜{p.source}\n{p.title}\n{p.link}",
                       click=p.link or None, priority=4, group=products[p.product]["name"])
-        pushes += 1
+    if late_posts[MAX_POST_PUSHES:]:
+        notifier.send(f"另有 {len(late_posts) - MAX_POST_PUSHES} 条优惠帖",
+                      "\n".join(f"{p.title}\n{p.link}" for p in late_posts[MAX_POST_PUSHES:MAX_POST_PUSHES + 10]))
+    pushes = 0
     rest = []
     for o, a in to_alert:
         if pushes >= max_push:
