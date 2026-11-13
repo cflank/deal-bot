@@ -154,7 +154,7 @@ class CoreTests(unittest.TestCase):
 
     def test_shopify_source(self):
         payload = {"resources": {"results": {"products": [
-            {"title": "BRAVE Backpack", "price": "115.50", "compare_at_price_max": "165.00", "available": True,
+            {"title": "BRAVE Backpack", "price": "115.50", "compare_at_price_min": "165.00", "compare_at_price_max": "175.00", "available": True,
              "url": "/products/brave?_pos=1&_psq=backpack"},
             {"title": "Free thing", "price": "0.00", "url": "/products/free"}]}}}
         old, bot_sources.fetch = bot_sources.fetch, lambda url, **kw: json.dumps(payload)
@@ -195,6 +195,26 @@ class WorkerTests(Base):
         self.assertEqual([o["product"] for o in second["offers"]], ["p2"])
         self.assertTrue(first["offers"][0]["qualifies"])     # alert_below 500
         self.assertFalse(second["offers"][0]["qualifies"])   # alert_below 50
+
+    def test_used_only_product_still_learns_the_list_price(self):
+        self.register("4165550204")
+        cfg = server.clean_product({"name": "Phone", "conditions": ["used"], "max_price": 1000, "max_pct": {"used": 70}})
+        self.con.execute("INSERT INTO products(user_id, cfg, created_at) VALUES(1,?,0)", (json.dumps(cfg),))
+        self.con.commit()
+        page = json.dumps({"products": [{"name": "Phone 256GB", "price": 1599.99, "url": "/p/new"},
+                                        {"name": "Phone 256GB used", "price": 800, "url": "/p/used"}]})
+        sources = [{"id": "s", "name": "S", "type": "page", "url": "https://s.example/?q={query}",
+                    "reference": "product", "categories": ["other"]}]
+        old, bot_sources.fetch = bot_sources.fetch, lambda url, **kw: page
+        try:
+            user = self.con.execute("SELECT * FROM users").fetchone()
+            latest = worker.run_user(self.con, user, sources)
+        finally:
+            bot_sources.fetch = old
+        self.assertEqual([(o["url"], o["msrp"], o["qualifies"]) for o in latest["offers"]],
+                         [("https://s.example/p/used", 1599.99, True)])     # the new listing only taught the price
+        state = json.loads(self.con.execute("SELECT state FROM user_state").fetchone()["state"])
+        self.assertEqual(state["auto_msrp"], {"p1": {"256": 1599.99}})
 
     def test_import_legacy_keeps_alert_state(self):
         self.register("4165550203", kind="admin")

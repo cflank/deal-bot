@@ -219,7 +219,8 @@ def source_shopify(cfg: dict) -> list[Offer]:
         price = parse_price(p.get("price"))
         if not price or not p.get("title"):
             continue
-        regular = parse_price(p.get("compare_at_price_max"))
+        # "price" is the cheapest variant, so pair it with the lowest compare-at price: never overstate a discount.
+        regular = parse_price(p.get("compare_at_price_min"))
         link = urllib.parse.urljoin(base, (p.get("url") or "").split("?")[0])
         offers.append(Offer(cfg["name"], p["title"], price, link,
                             regular_price=regular if regular and regular > price else None,

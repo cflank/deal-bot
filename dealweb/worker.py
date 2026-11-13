@@ -124,14 +124,31 @@ def run_user(con, user, sources: list[dict], *, now: datetime | None = None, for
         cfg = {"settings": {**SETTINGS, **user_settings}, "products": products, "sources": sources}
         if products:
             notifier = Notifier(key=user["bark"], server="", dry_run=auth.dev_mode())
-            fetched = runner.collect(cfg, pause=0)
-            ids = {p["id"] for p in products}
-            auto = auto_reference(fetched[0], sources, {p["id"] for p in products if p.get("msrp")},
-                                  {k: v for k, v in state.get("auto_msrp", {}).items() if k in ids})
+            # Collect without the owner's condition / top price / stock limits: a "used only" product still
+            # needs the shop's new listings to learn the list price. The limits are applied right after.
+            # ponytail: an offer two products both match goes to the first one even if its limits then drop it.
+            wide = {**cfg, "settings": {**cfg["settings"], "skip_out_of_stock": False},
+                    "products": [{**p, "conditions": [], "max_price": None} for p in products]}
+            offers, posts, health = runner.collect(wide, pause=0)
+            # A remembered price only counts while the search words it came from are unchanged.
+            sig = {p["id"]: json.dumps([p.get("query"), p.get("include"), p.get("exclude")], ensure_ascii=False)
+                   for p in products}
+            old_sig = state.get("auto_msrp_sig", {})
+            auto = auto_reference(offers, sources, {p["id"] for p in products if p.get("msrp")},
+                                  {k: v for k, v in state.get("auto_msrp", {}).items() if old_sig.get(k) == sig.get(k)})
+            by_id = {p["id"]: p for p in products}
+            skip_oos = runner.settings(cfg)["skip_out_of_stock"]
+
+            def wanted(o) -> bool:
+                p = by_id[o.product]
+                return ((not p.get("conditions") or o.condition in p["conditions"])
+                        and o.price <= (p.get("max_price") or 10**9)
+                        and not (skip_oos and o.in_stock is False))
             for p in products:
                 p["msrp"] = p.get("msrp") or auto.get(p["id"], {})
-            state = runner.run(cfg, state, notifier, now=now, force_digest=force_digest, fetched=fetched)
-            state["auto_msrp"] = auto
+            state = runner.run(cfg, state, notifier, now=now, force_digest=force_digest,
+                               fetched=([o for o in offers if wanted(o)], posts, health))
+            state["auto_msrp"], state["auto_msrp_sig"] = auto, {k: sig[k] for k in auto}
             latest = runner.latest_json(cfg, state)
             latest["push_errors"] = notifier.errors[:3]
         else:
