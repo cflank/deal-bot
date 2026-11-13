@@ -247,6 +247,10 @@ async function viewProduct(id) {
       <div class="field"><label for="msrp">参考原价（可不填）</label>
         <input id="msrp" name="msrp_default" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.msrp && p.msrp.default)}" placeholder="$">
         <p class="hint">填了会显示每个报价是原价的百分之几。</p></div>
+      <div class="field"><span class="label">低到原价的百分之几就提醒</span>
+        <div class="pair">${Object.entries(COND).map(([k, label]) =>
+          `<label class="mini">${label} %<input name="pct_${k}" type="number" inputmode="decimal" min="1" max="150" step="any" value="${esc((p.max_pct || {})[k])}" placeholder="不提醒"></label>`).join("")}</div>
+        <p class="hint">比如二手填 70：二手价低到原价的 70% 或更低就推送。空着的成色不按百分比提醒。要先填参考原价；和提醒价满足一个就推送。</p></div>
       <details${(p.sources || []).length ? " open" : ""}><summary>只搜指定的网站</summary>
         <div id="srcs">${sourceChips(p.category)}</div>
         <p class="hint" style="margin-top:8px">一个都不选等于这个类别的全部网站。</p></details>
@@ -267,6 +271,8 @@ async function viewProduct(id) {
       const tiers = p.msrp && !("default" in p.msrp) && Object.keys(p.msrp).length ? p.msrp : null;
       d.msrp = d.msrp_default ? { default: d.msrp_default } : (tiers || {});   // 导入的按容量分档参考价原样保留
       delete d.msrp_default;
+      d.max_pct = {};
+      for (const k of Object.keys(COND)) { d.max_pct[k] = d[`pct_${k}`]; delete d[`pct_${k}`]; }
       await api(isNew ? "POST" : "PUT", isNew ? "/api/products" : `/api/products/${id}`, d);
       toast("已保存，正在检查这个商品");
       location.hash = "#/products";

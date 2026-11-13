@@ -87,6 +87,7 @@ input[type=text], input[type=tel], input[type=number], textarea, select {
   background: var(--tag); color: var(--ink); font: 16px var(--text); }
 textarea { min-height: 72px; resize: vertical; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.mini { font-size: 13px; color: var(--mute); }
 .code { font: 700 32px var(--num); letter-spacing: .2em; text-align: center; }
 
 /* 可点的方块多选 */

@@ -108,6 +108,16 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(assess(Offer("S", "x", 199, "u", condition="used"), product).qualifies)
         self.assertFalse(assess(Offer("S", "x", 201, "u", condition="used"), product).qualifies)
 
+    def test_percent_of_reference_price_rule(self):
+        cfg = server.clean_product({"name": "x", "msrp": {"default": "1000"},
+                                    "max_pct": {"used": "70", "new": "", "refurb": "999", "bogus": "5"}})
+        self.assertEqual(cfg["max_pct"], {"used": 70})
+        self.assertTrue(assess(Offer("S", "x", 700, "u", condition="used"), cfg).qualifies)
+        self.assertFalse(assess(Offer("S", "x", 701, "u", condition="used"), cfg).qualifies)
+        self.assertFalse(assess(Offer("S", "x", 700, "u", condition="new"), cfg).qualifies)
+        with self.assertRaises(server.ApiError):
+            server.clean_product({"name": "x", "max_pct": {"used": 70}})
+
     def test_product_only_searched_on_its_sources(self):
         calls = []
         old = dict(runner.OFFER_SOURCES)
