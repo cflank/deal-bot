@@ -206,7 +206,7 @@ class RunnerTests(unittest.TestCase):
                    fetched=self.fetched([offer(deal.title, 1099, deal.url), meh, pods], [post2]))
         titles = [m["title"] for m in n.sent]
         self.assertEqual(len(titles), 3, titles)
-        self.assertTrue(any(t.startswith("RFD") for t in titles))
+        self.assertTrue(any(t.startswith("优惠帖") for t in titles))
         self.assertIn("iPhone Air 256GB $1,099 (-24%)", titles)
         self.assertIn("AirPods Pro 3 $249 (-24%)", titles)
 

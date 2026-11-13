@@ -19,7 +19,7 @@ STATIC = Path(__file__).resolve().parent / "static"
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
          ".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml", ".png": "image/png",
          ".ico": "image/x-icon", ".webmanifest": "application/manifest+json", ".woff2": "font/woff2"}
-CATEGORIES = {"electronics": "电子数码", "fashion": "服饰箱包", "other": "其它"}
+CATEGORIES = {"electronics": "电子数码", "fashion": "服饰箱包", "other": "其它", "deals": "只盯优惠帖子"}
 CONDITIONS = ("new", "openbox", "refurb", "used")
 MAX_BODY = 64 * 1024
 START_PER_IP_HOUR = 20
@@ -97,7 +97,7 @@ def public_user(con, user) -> dict:
     return {
         "phone": user["phone"], "is_admin": bool(user["is_admin"]),
         "devices": len(parse_devices(user["bark"])),
-        "settings": {"daily_digest_hour": 9, **json.loads(user["settings"] or "{}")},
+        "settings": {"daily_digest_hour": 9, "store_sales": True, **json.loads(user["settings"] or "{}")},
         "max_products": max_products(),
         "categories": CATEGORIES,
         "sources": [{"id": s["id"], "name": s["name"], "categories": s.get("categories", []),
@@ -192,7 +192,10 @@ def r_product_delete(h, con, user, m, body):
 
 def r_dashboard(h, con, user, m, body):
     row = con.execute("SELECT latest FROM user_state WHERE user_id=?", (user["id"],)).fetchone()
-    return json.loads(row["latest"]) if row else {}
+    latest = json.loads(row["latest"]) if row else {}
+    week = time.time() - 7 * 86400
+    latest["store_sales"] = [e for e in db.get_meta(con, "store_sales", []) if e["at"] >= week]
+    return latest
 
 
 def r_settings(h, con, user, m, body):
@@ -202,6 +205,8 @@ def r_settings(h, con, user, m, body):
         if not -1 <= hour <= 23:
             raise ApiError("每日行情时间不对")
         settings["daily_digest_hour"] = hour
+    if "store_sales" in body:
+        settings["store_sales"] = bool(body["store_sales"])
     bark = user["bark"]
     if "bark" in body:
         bark = auth.check_bark(body["bark"])

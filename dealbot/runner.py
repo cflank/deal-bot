@@ -210,7 +210,7 @@ def run(cfg: dict, state: dict, notifier: Notifier, *, now: datetime | None = No
             qual = sum(1 for _, a in items if a.qualifies)
             lines.append(f"\n【{products[pid]['name']}】找到 {len(items)} 个报价" + (f"，{qual} 个已达提醒条件" if qual else ""))
             lines += [short_line(i, o, a) for i, (o, a) in enumerate(items[:3], 1)]
-            lines += [f"· RFD：{p.title}" for p in new_posts if p.product == pid][:2]
+            lines += [f"· 优惠帖：{p.title}" for p in new_posts if p.product == pid][:2]
         failed = [n for n, h in health.items() if not h["ok"]]
         if failed:
             lines.append("\n暂时抓取失败：" + "、".join(failed))
@@ -223,7 +223,7 @@ def run(cfg: dict, state: dict, notifier: Notifier, *, now: datetime | None = No
     for p in new_posts:
         if p.product in fresh or pushes >= max_push:
             continue
-        notifier.send(f"RFD 新帖：{p.title}"[:200], f"{products[p.product]['name']}\n{p.title}\n{p.link}",
+        notifier.send(f"优惠帖：{p.title}"[:200], f"{products[p.product]['name']}｜{p.source}\n{p.title}\n{p.link}",
                       click=p.link or None, priority=4, group=products[p.product]["name"])
         pushes += 1
     rest = []

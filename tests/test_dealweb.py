@@ -216,6 +216,37 @@ class WorkerTests(Base):
         state = json.loads(self.con.execute("SELECT state FROM user_state").fetchone()["state"])
         self.assertEqual(state["auto_msrp"], {"p1": {"256": 1599.99}})
 
+    def test_storewide_sale_is_found_once_and_pushed_to_users_who_want_it(self):
+        from dealweb import stores
+        self.register("4165550205")
+        self.register("4165550206")
+        self.con.execute("UPDATE users SET settings=? WHERE id=2", (json.dumps({"store_sales": False}),))
+        self.con.commit()
+        sources = [{"id": "b", "name": "Brand", "type": "shopify", "domain": "b.example", "reference": "offer"},
+                   {"id": "c", "name": "Consign", "type": "shopify", "domain": "c.example", "condition": "used"}]
+        price, hits = {"now": 100.0}, []
+
+        def fake(url, **kw):
+            hits.append(url)
+            return json.dumps({"products": [{"id": i, "variants": [{"price": str(price["now"] if i < 20 else 100.0)},
+                                                                   {"price": "250.00"}]} for i in range(40)]})
+        day = 86400
+        self.assertEqual(stores.scan_due(self.con, sources, fake, now=10 * day), [])          # first look: baseline only
+        self.assertEqual(stores.scan_due(self.con, sources, fake, now=10 * day + 60), [])     # not due again yet
+        self.assertEqual(len(hits), 1)                                                        # consignment shop is not watched
+        price["now"] = 70.0
+        events = stores.scan_due(self.con, sources, fake, now=11 * day)
+        self.assertEqual([(e["store"], e["dropped"], e["of"], e["ratio"]) for e in events], [("b", 20, 40, 0.7)])
+        self.assertEqual(stores.scan_due(self.con, sources, fake, now=12 * day), [])          # same prices: no repeat
+        sent = []
+        old = stores.Notifier.send
+        stores.Notifier.send = lambda self_, title, message, **kw: sent.append((len(self_.devices), title))
+        try:
+            stores.notify(self.con, events)
+        finally:
+            stores.Notifier.send = old
+        self.assertEqual(sent, [(1, "品牌活动：Brand")])                                       # user 2 switched it off
+
     def test_import_legacy_keeps_alert_state(self):
         self.register("4165550203", kind="admin")
         d = Path(self.tmp.name)

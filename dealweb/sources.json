@@ -1,5 +1,7 @@
 [
-  {"id": "rfd", "name": "RedFlagDeals 热门优惠", "type": "rfd", "url": "https://forums.redflagdeals.com/feed/forum/9", "categories": ["electronics", "fashion", "other"]},
+  {"id": "rfd", "name": "RedFlagDeals 热门优惠", "type": "rfd", "url": "https://forums.redflagdeals.com/feed/forum/9", "categories": ["electronics", "fashion", "other", "deals"]},
+  {"id": "smartcanucks", "name": "SmartCanucks 优惠资讯", "type": "rfd", "url": "https://smartcanucks.ca/feed/", "categories": ["electronics", "fashion", "other", "deals"]},
+  {"id": "bapcsales", "name": "Reddit 加拿大电脑优惠", "type": "rfd", "url": "https://www.reddit.com/r/bapcsalescanada/new/.rss", "categories": ["electronics", "deals"]},
   {"id": "bestbuy", "name": "Best Buy Canada", "type": "bestbuy", "reference": "product", "categories": ["electronics", "other"]},
   {"id": "apple-refurb", "name": "Apple 官方翻新 iPhone", "type": "page", "url": "https://www.apple.com/ca/shop/refurbished/iphone", "condition": "refurb", "categories": ["electronics"]},
   {"id": "walmart", "name": "Walmart.ca", "type": "page", "url": "https://www.walmart.ca/en/search?q={query}", "categories": ["electronics", "fashion", "other"]},

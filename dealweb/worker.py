@@ -11,7 +11,7 @@ from dealbot import runner, sources as bot_sources
 from dealbot.matching import storage_sizes
 from dealbot.notify import Notifier
 
-from . import auth, db
+from . import auth, db, stores
 
 DEFAULT_TTL = 25 * 60     # a 30-minute cycle re-fetches; users in the same cycle share one request
 ERROR_TTL = 25 * 60       # a failed request is not retried for other users in the same cycle
@@ -196,6 +196,11 @@ def run_cycle(con, *, only_user: int | None = None) -> None:
                 if h.get("error"):
                     agg["error"] = h["error"]
         print(f"本轮真实请求 {fetch.requests} 次。")
+        if not only_user:
+            try:   # uncached on purpose: a store's product list is megabytes and only read every few hours
+                stores.notify(con, stores.scan_due(con, sources, fetch.real))
+            except Exception as exc:
+                print(f"整店检查失败：{type(exc).__name__}: {exc}")
     if not only_user:
         with con:
             db.set_meta(con, "health", {"at": time.time(), "sources": health})

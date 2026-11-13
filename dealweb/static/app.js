@@ -162,6 +162,14 @@ async function viewBoard() {
   if (board.push_errors && board.push_errors.length) {
     html += `<div class="notice bad">上次推送有手机没收到。到「设置」里检查 Bark 地址，再发一次测试推送。</div>`;
   }
+  const sales = board.store_sales || [];
+  if (sales.length) {
+    html += `<section class="group"><div class="group-head"><h2>品牌活动</h2><span class="small mute">最近 7 天</span></div>
+      <ul class="rows">${sales.map((e) => `<li><a class="row" href="${esc(e.url)}" target="_blank" rel="noopener noreferrer">
+        ${esc(e.name)}：${e.dropped} 件商品降价，一半降到之前价格的 ${Math.round(e.ratio * 100)}% 或更低
+        <span class="small mute">${new Date(e.at * 1000).toLocaleDateString("zh-CN", { month: "long", day: "numeric" })}发现</span></a></li>`).join("")}</ul>
+      <p class="hint">整店商品标价一起下调时会出现在这里。结账时才减的折扣看不到。</p></section>`;
+  }
   if (!active.length) {
     html += `<div class="empty"><p>还没有在盯的商品。加一个，半小时内开始盯价，降到你的价就推送。</p>
       <a class="btn primary" href="#/products/new">添加商品</a></div>`;
@@ -170,7 +178,9 @@ async function viewBoard() {
     const offers = (board.offers || []).filter((o) => o.product === p.id);
     const side = p.alert_below ? `提醒价 ${money(p.alert_below)}` : "";
     html += `<section class="group"><div class="group-head"><h2>${esc(p.name)}</h2><span class="small mute">${side}</span></div>`;
-    if (!offers.length) {
+    if (p.category === "deals") {
+      html += `<p class="mute">只盯优惠帖子，不查价格。帖子标题里出现你填的词就推送，最近的帖子列在下面。</p>`;
+    } else if (!offers.length) {
       const checked = (board.products || []).some((x) => x.id === p.id);
       html += `<p class="mute">${checked ? "这一轮没找到符合条件的报价。可以放宽价格范围，或减少“必须包含的词”。" : "正在第一次检查，一两分钟后刷新看看。"}</p>`;
     } else {
@@ -238,7 +248,7 @@ async function viewProduct(id) {
       <div class="field"><span class="label" id="l-cat">类别</span>
         <div class="chips" role="radiogroup" aria-labelledby="l-cat">${Object.entries(me.categories).map(([k, v]) =>
           `<label><input type="radio" name="category" value="${k}"${p.category === k ? " checked" : ""}><span>${esc(v)}</span></label>`).join("")}</div>
-        <p class="hint">决定去哪些网站找：电子数码查 Best Buy 等，服饰箱包查品牌官网和二手寄卖店。</p></div>
+        <p class="hint">决定去哪些网站找：电子数码查 Best Buy 等，服饰箱包查品牌官网和二手寄卖店。“只盯优惠帖子”不查价格，优惠论坛和资讯站的帖子标题里出现下面的词就推送，适合填品牌名，比如 lululemon。</p></div>
       <div class="field"><label for="include">型号，或标题里必须有的词</label>
         <textarea id="include" name="include" placeholder="用逗号分开，有一个就算。不填就用商品名称">${esc((p.include || []).join(", "))}</textarea>
         <p class="hint">比如 iphone air, iphone 17 air。写得越具体，搜到的越准。</p></div>
@@ -324,7 +334,15 @@ function viewSettings() {
         <button class="btn" type="submit">保存时间</button>
       </form>
     </section>
+    <section class="group"><h2>品牌活动</h2>
+      <div class="field"><label><input type="checkbox" id="sales"${me.settings.store_sales !== false ? " checked" : ""}> 品牌整店降价时推送给我</label>
+        <p class="hint">每隔几小时看一遍 Matt &amp; Nat、Herschel 等 29 家品牌官网的全部标价，一大批商品同时降价就推送一条，不用事先添加商品。</p></div>
+    </section>
     <section class="group"><button class="btn" id="out">退出登录</button></section>`;
+  document.getElementById("sales").onchange = async (ev) => {
+    try { me = await api("PUT", "/api/settings", { store_sales: ev.target.checked }); toast(ev.target.checked ? "已开启品牌活动推送" : "已关闭品牌活动推送"); }
+    catch (e) { ev.target.checked = !ev.target.checked; toast(e.message); }
+  };
   document.getElementById("test").onclick = async (ev) => {
     ev.target.disabled = true;
     try { const r = await api("POST", "/api/test-push", {}); toast(`测试推送已发到 ${r.devices} 台手机`); }
