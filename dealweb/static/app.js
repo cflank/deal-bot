@@ -87,6 +87,7 @@ function viewLogin() {
         <button class="btn primary wide" type="submit">获取验证码</button>
       </form>
       <p style="margin-top:16px"><button class="link" id="swap">${register ? "已经注册过，直接登录" : "第一次用，凭邀请码注册"}</button></p>
+      <p><a class="link-row" href="#/help">使用说明：怎么装 Bark、怎么注册、怎么用</a></p>
     </div>`;
   const stepCode = () => `
     <div class="auth">
@@ -342,7 +343,8 @@ function viewSettings() {
       <div class="field"><label><input type="checkbox" id="sales"${me.settings.store_sales !== false ? " checked" : ""}> 品牌整店降价时推送给我</label>
         <p class="hint">每隔几小时看一遍 Matt &amp; Nat、Herschel 等 29 家品牌官网的全部标价，一大批商品同时降价就推送一条，不用事先添加商品。</p></div>
     </section>
-    <section class="group"><button class="btn" id="out">退出登录</button></section>`;
+    <section class="group"><p><a class="link-row" href="#/help">使用说明</a></p>
+      <button class="btn" id="out">退出登录</button></section>`;
   document.getElementById("sales").onchange = async (ev) => {
     try { me = await api("PUT", "/api/settings", { store_sales: ev.target.checked }); toast(ev.target.checked ? "已开启品牌活动推送" : "已关闭品牌活动推送"); }
     catch (e) { ev.target.checked = !ev.target.checked; toast(e.message); }
@@ -366,6 +368,95 @@ function viewSettings() {
     me = null;
     location.hash = "#/login";
   };
+}
+
+// ------------------------------------------------------------------- 使用说明
+// 不登录也能看：新用户要先照着它装 Bark、注册。
+
+function viewHelp() {
+  const back = me ? `<a class="small" href="#/settings">返回设置</a>` : `<a class="small" href="#/login">返回登录</a>`;
+  main.innerHTML = `<div class="head"><h1>使用说明</h1>${back}</div>
+  <div class="doc">
+    <p>你列出想买的东西和心理价，它每半小时去各个网站查一遍，降到价就推送到你的 iPhone。</p>
+
+    <h2>开始之前</h2>
+    <ul>
+      <li>需要一台 iPhone。推送靠 Bark 这个 App，安卓手机用不了。</li>
+      <li>需要一个邀请码，找给你网址的人要。每个邀请码只能用一次。</li>
+    </ul>
+
+    <h2>第一步：装 Bark</h2>
+    <ol>
+      <li>在 App Store 搜索 Bark，安装并打开，允许它发通知。</li>
+      <li>首页有一行以 https://api.day.app/ 开头的地址，点一下复制。</li>
+    </ol>
+
+    <h2>第二步：注册</h2>
+    <ol>
+      <li>在登录页点“第一次用，凭邀请码注册”。</li>
+      <li>手机号：只当账户名用，不会给你发短信或打电话。</li>
+      <li>邀请码：直接粘贴，区分大小写。</li>
+      <li>Bark 推送地址：粘贴刚才复制的那一行。</li>
+      <li>点“获取验证码”。6 位验证码会从 Bark 推到你手机上，5 分钟内有效。填进去，点“登录”。</li>
+    </ol>
+    <p>以后登录只要填手机号，验证码还是从 Bark 推过来。登录一次管 30 天。</p>
+    <p>想用起来像个 App：在 Safari 里点分享按钮，选“添加到主屏幕”。</p>
+
+    <h2>第三步：添加要盯的商品</h2>
+    <p>点底部的“商品”，再点“添加商品”。最少填这几项就能用：</p>
+    <ul>
+      <li><b>商品名称</b>：比如 iPhone Air、Coach Tabby。用英文更容易搜到。</li>
+      <li><b>类别</b>：决定去哪些网站找。电子数码查 Best Buy、Walmart、Kijiji 二手；服饰箱包查 29 家品牌官网、4 家二手寄卖店、Walmart、Kijiji；“只盯优惠帖子”不查价格，优惠论坛里有相关帖子就推送。</li>
+      <li><b>什么时候提醒</b>，两种填一种就行。提醒价：价格低于这个数就推送。低到原价的百分之几就提醒：按成色分别填，比如二手填 60，二手价低到原价的六成就推送。</li>
+    </ul>
+    <p>点“保存商品”。大约一分钟后看板上就有结果，之后每半小时自动查一次，品牌官网每 3 小时查一次。每人最多盯 ${me ? me.max_products : 10} 个商品。</p>
+    <p>想查得更准，再填这些：</p>
+    <ul>
+      <li><b>型号，或标题里必须有的词</b>：用逗号分开，有一个就算。写得越具体越准。</li>
+      <li><b>不要的词</b>：标题里出现就丢掉，比如 case for, screen protector, for parts。</li>
+      <li><b>成色</b>：全新、开箱、翻新、二手，可以多选，都不选等于全要。</li>
+      <li><b>价格范围</b>：范围外的直接忽略。填个最低价能挡掉大部分配件。</li>
+      <li><b>太便宜的当成配件忽略</b>：默认是不到原价的四分之一就忽略，一般不用改。</li>
+      <li><b>参考原价</b>：留空会自动查。Best Buy 自己在卖的东西和品牌官网的商品能查到，查不到的可以手填。</li>
+      <li><b>只搜指定的网站</b>：比如只盯某一家品牌店。</li>
+    </ul>
+
+    <h2>看板怎么看</h2>
+    <ul>
+      <li>黄色价签、右上角有红色“到价”：达到了你的提醒条件。</li>
+      <li>“原价的 53%”：这个报价是原价的百分之几，越小越划算。</li>
+      <li>点价签上的商品标题会打开商家页面。</li>
+      <li>盯了两天以上，每个商品下面会出现价格走势，能看出是真降价还是先涨后降。</li>
+    </ul>
+
+    <h2>会收到哪些推送</h2>
+    <ul>
+      <li><b>开始监控</b>：新加商品后的第一条，告诉你找到了多少报价。</li>
+      <li><b>到价提醒</b>：有报价达到你的条件。同一个报价只提醒一次，除非它又降了 30 加元以上。</li>
+      <li><b>优惠帖</b>：优惠论坛里出现了和你的商品相关的帖子。</li>
+      <li><b>每日行情</b>：每天早上 9 点汇总一次当前最低价。可以在“设置”里改时间或关掉。</li>
+      <li><b>品牌活动</b>：某家品牌官网一大批商品同时降价。不用事先加商品，可以在“设置”里关掉。</li>
+    </ul>
+
+    <h2>黑五怎么用</h2>
+    <ul>
+      <li>把想买的具体商品现在就加进去，让它先记下平时的价格。</li>
+      <li>想知道某个牌子有没有活动：加一个商品，名称填品牌名，比如 lululemon，类别选“只盯优惠帖子”。</li>
+      <li>想看所有黑五消息：同样的做法，名称填 black friday。帖子会很多，每轮单独推 3 条，其余合成一条。</li>
+    </ul>
+
+    <h2>常见问题</h2>
+    <details><summary>收不到验证码</summary><p>先看 Bark 有没有通知权限，再看地址是不是复制完整了。同一个手机号每分钟只能要一次验证码，每小时最多 5 次。</p></details>
+    <details><summary>换了手机，或者 Bark 地址变了</summary><p>还能登录的话，到“设置”里点“更换或添加手机”，填新地址。登不上的话，找给你邀请码的人要一个换绑码。</p></details>
+    <details><summary>想让两台手机都收到</summary><p>到“设置”里点“更换或添加手机”，把两台的地址都填上，每行一个。保存会替换掉原来的全部地址，所以两台都要填。</p></details>
+    <details><summary>提醒太多</summary><p>把提醒价调低，或者把百分比调小。配件混进来的话，填一个最低价，或者在“不要的词”里加上。</p></details>
+    <details><summary>为什么有些网站查不到</summary><p>Amazon、eBay、Costco、Lululemon、Aritzia、Uniqlo、Sport Chek 这些网站不让程序访问，查不到。它们的活动只能靠“只盯优惠帖子”间接知道。</p></details>
+    <details><summary>成色准不准</summary><p>Kijiji 和寄卖店一律算二手。其它网站靠标题里的字判断，标题没写的会当成全新。</p></details>
+    <details><summary>折扣码算不算</summary><p>不算。只能看到商品的标价，结账时才减的折扣和折扣码看不到。</p></details>
+    <details><summary>别人能看到我盯了什么吗</summary><p>其他用户看不到。管理员在管理页里能看到你的手机号和你加了几个商品。这是私人搭的网站，数据存在管理员的服务器上。</p></details>
+
+    <p class="mute">价格以商家页面为准，下单前自己再核对一遍。Kijiji 是私人交易，当面验货。</p>
+  </div>`;
 }
 
 // ----------------------------------------------------------------------- 管理
@@ -415,11 +506,12 @@ async function route() {
   if (!me) {
     try { me = await api("GET", "/api/me"); } catch { me = null; }
   }
-  if (!me) { renderTabs(); viewLogin(); return; }
+  if (!me) { renderTabs(); view === "help" ? viewHelp() : viewLogin(); window.scrollTo(0, 0); return; }
   if (view === "login") { location.hash = "#/board"; return; }
-  renderTabs(view);
+  renderTabs(view === "help" ? "settings" : view);
   try {
-    if (view === "products" && arg) await viewProduct(arg);
+    if (view === "help") viewHelp();
+    else if (view === "products" && arg) await viewProduct(arg);
     else if (view === "products") await viewProducts();
     else if (view === "settings") viewSettings();
     else if (view === "admin" && me.is_admin) await viewAdmin();

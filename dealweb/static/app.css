@@ -132,3 +132,12 @@ summary::-webkit-details-marker { display: none; }
 summary::before { content: "+"; display: inline-block; width: 1.2em; font-weight: 400; }
 details[open] > summary::before { content: "−"; }
 .group > h2 { margin-bottom: 8px; }
+
+/* 使用说明 */
+.link-row { display: inline-flex; align-items: center; min-height: 44px; }
+.doc { font-size: 16px; line-height: 1.65; }
+.doc h2 { margin: 28px 0 8px; padding-top: 12px; border-top: 1.5px solid var(--ink); }
+.doc ul, .doc ol { margin: 0 0 12px; padding-left: 1.4em; }
+.doc li { margin-bottom: 6px; }
+.doc details { margin-bottom: 0; border-bottom: 1px solid color-mix(in srgb, var(--ink) 22%, transparent); }
+.doc details p { margin-bottom: 12px; }
