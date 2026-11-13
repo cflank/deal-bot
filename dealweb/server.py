@@ -90,8 +90,6 @@ def clean_product(data: dict, old: dict | None = None) -> dict:
     # Per-condition "alert at or below N% of the reference price" (dealbot.matching.assess).
     pcts = data.get("max_pct") or {}
     cfg["max_pct"] = {c: p for c in CONDITIONS if (p := _price(pcts.get(c))) and p <= 150}
-    if cfg["max_pct"] and not cfg["msrp"]:
-        raise ApiError("按百分比提醒要先填参考原价")
     return cfg
 
 
@@ -150,7 +148,10 @@ def r_me(h, con, user, m, body):
 
 
 def r_products(h, con, user, m, body):
-    return {"products": db.user_products(con, user["id"])}
+    row = con.execute("SELECT state FROM user_state WHERE user_id=?", (user["id"],)).fetchone()
+    auto = json.loads(row["state"]).get("auto_msrp", {}) if row else {}
+    # auto_msrp: the reference price the worker found by itself, shown in the form (read-only).
+    return {"products": [{**p, "auto_msrp": auto.get(p["id"], {})} for p in db.user_products(con, user["id"])]}
 
 
 def r_product_create(h, con, user, m, body):

@@ -209,6 +209,18 @@ function chips(name, options, checked) {
     `<label><input type="checkbox" name="${name}" value="${esc(value)}"${checked.includes(value) ? " checked" : ""}><span>${esc(label)}</span></label>`).join("")}</div>`;
 }
 
+// 参考原价那一栏下面的说明：手填的、自动查到的、还没查到的，各说各的。
+function refHint(p) {
+  const tiers = (m) => Object.entries(m || {}).filter(([k]) => k !== "default")
+    .sort((a, b) => a[0] - b[0]).map(([gb, v]) => `${gb >= 1024 ? gb / 1024 + "TB" : gb + "GB"} ${money(v)}`).join("，");
+  if (p.msrp && Object.keys(p.msrp).length && !("default" in p.msrp)) return `现在按手填的分档原价算：${tiers(p.msrp)}。在上面填一个数会改成只用这一个原价。`;
+  if (p.msrp && p.msrp.default) return "现在按你填的原价算。清空就改回自动查。";
+  const a = p.auto_msrp || {};
+  const found = tiers(a) || (a.default ? money(a.default) : "");
+  if (found) return `自动查到：${found}（Best Buy 自营新品价）。没查到的容量不显示百分比；想用别的数就在这里手填。`;
+  return "留空会自动用 Best Buy 自营新品价，或品牌官网自己的标价。查不到的不显示百分比，可以在这里手填。";
+}
+
 async function viewProduct(id) {
   const isNew = id === "new";
   const p = isNew ? { category: "electronics", conditions: [], enabled: true }
@@ -244,13 +256,13 @@ async function viewProduct(id) {
       <div class="field"><label for="alert_below">提醒价</label>
         <input id="alert_below" name="alert_below" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.alert_below)}" placeholder="$">
         <p class="hint">价格低于或等于这个数就推送到你手机。</p></div>
-      <div class="field"><label for="msrp">参考原价（可不填）</label>
-        <input id="msrp" name="msrp_default" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.msrp && p.msrp.default)}" placeholder="$">
-        <p class="hint">填了会显示每个报价是原价的百分之几。</p></div>
+      <div class="field"><label for="msrp">参考原价</label>
+        <input id="msrp" name="msrp_default" type="number" inputmode="decimal" min="0" step="any" value="${esc(p.msrp && p.msrp.default)}" placeholder="留空就自动查">
+        <p class="hint">${esc(refHint(p))}</p></div>
       <div class="field"><span class="label">低到原价的百分之几就提醒</span>
         <div class="pair">${Object.entries(COND).map(([k, label]) =>
           `<label class="mini">${label} %<input name="pct_${k}" type="number" inputmode="decimal" min="1" max="150" step="any" value="${esc((p.max_pct || {})[k])}" placeholder="不提醒"></label>`).join("")}</div>
-        <p class="hint">比如二手填 70：二手价低到原价的 70% 或更低就推送。空着的成色不按百分比提醒。要先填参考原价；和提醒价满足一个就推送。</p></div>
+        <p class="hint">比如二手填 70：二手价低到原价的 70% 或更低就推送。空着的成色不按百分比提醒。原价查不到也没手填的报价不会按百分比提醒；和提醒价满足一个就推送。</p></div>
       <details${(p.sources || []).length ? " open" : ""}><summary>只搜指定的网站</summary>
         <div id="srcs">${sourceChips(p.category)}</div>
         <p class="hint" style="margin-top:8px">一个都不选等于这个类别的全部网站。</p></details>

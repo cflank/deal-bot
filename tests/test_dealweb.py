@@ -115,8 +115,28 @@ class CoreTests(unittest.TestCase):
         self.assertTrue(assess(Offer("S", "x", 700, "u", condition="used"), cfg).qualifies)
         self.assertFalse(assess(Offer("S", "x", 701, "u", condition="used"), cfg).qualifies)
         self.assertFalse(assess(Offer("S", "x", 700, "u", condition="new"), cfg).qualifies)
-        with self.assertRaises(server.ApiError):
-            server.clean_product({"name": "x", "max_pct": {"used": 70}})
+
+    def test_reference_price_found_automatically(self):
+        srcs = [{"name": "BB", "reference": "product"}, {"name": "Brand", "reference": "offer"}, {"name": "K"}]
+
+        def offer(source, title, price, cond="new", **kw):
+            return Offer(source, title, price, "u", condition=cond, product="p1", **kw)
+        mine = [offer("BB", "Phone 256GB", 1599.99),
+                offer("BB", "Phone 256GB", 1249.99, regular_price=1699.99, extra={"seller": "第三方卖家"}),  # made-up list price
+                offer("BB", "Phone 512GB", 1700, regular_price=1899.99),
+                offer("BB", "Phone 256GB", 1000, "openbox", regular_price=1300)]
+        used, bag = offer("K", "Phone 256GB", 800, "used"), offer("Brand", "Bag", 80, regular_price=100)
+        ref = worker.auto_reference(mine + [used, bag], srcs, set(), {"p1": {"1024": 2499}})
+        self.assertEqual(ref, {"p1": {"256": 1599.99, "512": 1899.99, "1024": 2499}})   # 1TB remembered from before
+        product = {"id": "p1", "msrp": ref["p1"], "max_pct": {"used": 70}}
+        a = assess(used, product)
+        self.assertEqual((a.msrp, round(a.pct_of_msrp), a.qualifies), (1599.99, 50, True))
+        self.assertIsNone(assess(offer("K", "Phone 128GB", 500, "used"), product).pct_of_msrp)   # no price for that size
+        self.assertEqual(assess(offer("K", "Phone", 500, "used"), product).msrp, 1599.99)        # size unknown: cheapest
+        self.assertEqual(assess(bag, {"id": "p1"}).msrp, 100)            # a brand store's own list price
+        hand = offer("Brand", "Bag", 80, regular_price=100)
+        self.assertEqual(worker.auto_reference(mine + [hand], srcs, {"p1"}, {}), {})   # filled in by hand: left alone
+        self.assertNotIn("list_price", hand.extra)
 
     def test_product_only_searched_on_its_sources(self):
         calls = []

@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import json
+import statistics
 import time
 import urllib.parse
 from datetime import datetime, timezone
 
 from dealbot import runner, sources as bot_sources
+from dealbot.matching import storage_sizes
 from dealbot.notify import Notifier
 
 from . import auth, db
@@ -77,6 +79,38 @@ def product_sources(product: dict, sources: list[dict]) -> list[str]:
     return [s["id"] for s in sources if cat in s.get("categories", [])]
 
 
+def auto_reference(offers, sources: list[dict], manual: set[str], remembered: dict) -> dict:
+    """Reference prices read from the shops, for products whose owner left "参考原价" empty.
+
+    Source field "reference":
+    - "product" (Best Buy): the shop's own new listings give the list price per storage size, and
+      every other offer of that product is compared against it. Marketplace sellers make up their
+      "regular price", so their listings are ignored.
+    - "offer" (brand stores): each item is compared against its own list price only.
+    Returns {product_id: msrp_cfg}. Prices seen in earlier rounds are kept while the shop has no stock.
+    """
+    kind = {s["name"]: s.get("reference") for s in sources}
+    seen: dict[str, dict[str, list[float]]] = {}
+    for o in offers:
+        if o.product in manual or o.condition != "new" or o.extra.get("seller"):
+            continue
+        price = o.regular_price or o.price
+        if kind.get(o.source) == "offer":
+            o.extra["list_price"] = price
+        elif kind.get(o.source) == "product":
+            # ponytail: the largest size in a title is taken as its storage, so "16GB RAM 512GB" is 512;
+            # wrong for titles that only mention RAM. Fill in 参考原价 by hand for those.
+            sizes = storage_sizes(o.title)
+            seen.setdefault(o.product, {}).setdefault(str(max(sizes)) if sizes else "default", []).append(price)
+    out = {}
+    for pid in {*remembered, *seen} - manual:
+        # median_low: a real listed price, and one stray accessory or bundle can't drag it.
+        ref = {**remembered.get(pid, {}), **{t: statistics.median_low(v) for t, v in seen.get(pid, {}).items()}}
+        if ref:
+            out[pid] = ref
+    return out
+
+
 def run_user(con, user, sources: list[dict], *, now: datetime | None = None, force_digest: bool = False) -> dict:
     """Run one user's check with whatever fetch function dealbot.sources currently has."""
     if not db.try_lock(con, f"user:{user['id']}"):
@@ -90,8 +124,14 @@ def run_user(con, user, sources: list[dict], *, now: datetime | None = None, for
         cfg = {"settings": {**SETTINGS, **user_settings}, "products": products, "sources": sources}
         if products:
             notifier = Notifier(key=user["bark"], server="", dry_run=auth.dev_mode())
-            state = runner.run(cfg, state, notifier, now=now, force_digest=force_digest,
-                               fetched=runner.collect(cfg, pause=0))
+            fetched = runner.collect(cfg, pause=0)
+            ids = {p["id"] for p in products}
+            auto = auto_reference(fetched[0], sources, {p["id"] for p in products if p.get("msrp")},
+                                  {k: v for k, v in state.get("auto_msrp", {}).items() if k in ids})
+            for p in products:
+                p["msrp"] = p.get("msrp") or auto.get(p["id"], {})
+            state = runner.run(cfg, state, notifier, now=now, force_digest=force_digest, fetched=fetched)
+            state["auto_msrp"] = auto
             latest = runner.latest_json(cfg, state)
             latest["push_errors"] = notifier.errors[:3]
         else:

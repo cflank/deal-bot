@@ -56,12 +56,13 @@ def detect_condition(title: str) -> str | None:
     return None
 
 
+def storage_sizes(title: str) -> list[int]:
+    """Every storage size mentioned in a title, in GB."""
+    return [int(num) * (1024 if unit.lower() in ("tb", "to") else 1) for num, unit in _STORAGE_RE.findall(title)]
+
+
 def detect_storage(title: str, tiers) -> int | None:
-    for num, unit in _STORAGE_RE.findall(title):
-        gb = int(num) * (1024 if unit.lower() in ("tb", "to") else 1)
-        if gb in tiers:
-            return gb
-    return None
+    return next((gb for gb in storage_sizes(title) if gb in tiers), None)
 
 
 def detect_carrier(title: str) -> str | None:
@@ -119,13 +120,19 @@ def assess(offer: Offer, product: dict) -> Assessment:
     tier = None
     guessed = False
     if tiered:
-        storage = detect_storage(offer.title, tiered)
-        # Unknown storage: compare against the cheapest tier so we never overstate a deal.
-        tier = storage if storage is not None else min(tiered)
-        guessed = storage is None
-        msrp = tiered[tier]
+        sizes = storage_sizes(offer.title)
+        storage = next((gb for gb in sizes if gb in tiered), None)
+        if storage is None and sizes:
+            msrp = None   # the title names a size we have no price for: no comparison beats a wrong one
+        else:
+            # Unknown storage: compare against the cheapest tier so we never overstate a deal.
+            tier = storage if storage is not None else min(tiered)
+            guessed = storage is None
+            msrp = tiered[tier]
     else:
         msrp = _num(msrp_cfg.get("default"))
+    # A shop's own list price for exactly this item (set by dealweb for shops it trusts) beats a product-wide one.
+    msrp = _num(offer.extra.get("list_price")) or msrp
     pct = offer.price / msrp * 100.0 if msrp else None
 
     max_pct = _num((product.get("max_pct") or {}).get(offer.condition))
