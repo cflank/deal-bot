@@ -27,7 +27,6 @@
   {"id": "kitandace", "name": "Kit and Ace", "type": "shopify", "domain": "kitandace.com", "categories": ["fashion"], "ttl_minutes": 180},
   {"id": "reigningchamp", "name": "Reigning Champ", "type": "shopify", "domain": "reigningchamp.com", "categories": ["fashion"], "ttl_minutes": 180},
   {"id": "knix", "name": "Knix", "type": "shopify", "domain": "knix.ca", "categories": ["fashion"], "ttl_minutes": 180},
-  {"id": "ardene", "name": "Ardene", "type": "shopify", "domain": "ardene.com", "categories": ["fashion"], "ttl_minutes": 180},
   {"id": "rwco", "name": "RW&CO.", "type": "shopify", "domain": "rw-co.com", "categories": ["fashion"], "ttl_minutes": 180},
   {"id": "duer", "name": "DUER", "type": "shopify", "domain": "duer.ca", "categories": ["fashion"], "ttl_minutes": 180},
   {"id": "encircled", "name": "Encircled", "type": "shopify", "domain": "encircled.co", "categories": ["fashion"], "ttl_minutes": 180},

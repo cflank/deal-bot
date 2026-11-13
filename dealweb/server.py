@@ -246,7 +246,8 @@ ROUTES = [
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "dealweb"
-    protocol_version = "HTTP/1.1"
+    # HTTP/1.0 on purpose: every response closes the connection, so a request body we chose not
+    # to read (404/405/415…) can never be parsed as the next request on a pooled proxy connection.
 
     def log_message(self, fmt, *args):   # never log bodies, cookies or Bark addresses
         print(f"{self.client_ip} {self.command} {urllib.parse.urlsplit(self.path).path} {args[1] if len(args) > 1 else ''}")

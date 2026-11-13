@@ -231,6 +231,24 @@ class HttpTests(Base):
         self.assertEqual(self.call("POST", "/api/auth/logout", {}, a)[0], 200)
         self.assertEqual(self.call("GET", "/api/me", cookie=a)[0], 401)
 
+    def test_unread_body_cannot_leak_into_next_request(self):
+        import socket
+        host, port = self.httpd.server_address
+        with socket.create_connection((host, port), timeout=5) as sock:
+            sock.sendall(b"POST /x HTTP/1.1\r\nHost: t\r\nContent-Length: 18\r\n\r\nGET /api/me HTTP/1")
+            sock.sendall(b"GET / HTTP/1.1\r\nHost: t\r\n\r\n")
+            data = b""
+            while chunk := sock.recv(65536):   # server must close after the first response
+                data += chunk
+        self.assertTrue(data.startswith(b"HTTP/1.0 405"))
+        self.assertEqual(data.count(b"HTTP/1."), 1)
+
+    def test_deleted_product_id_is_not_reused(self):
+        a = self.signup("4165550304")
+        first = self.call("POST", "/api/products", {"name": "a"}, a)[1]["id"]
+        self.call("DELETE", f"/api/products/{first}", {}, a)
+        self.assertNotEqual(self.call("POST", "/api/products", {"name": "b"}, a)[1]["id"], first)
+
     def test_product_cap_origin_and_static(self):
         a = self.signup("4165550303")
         os.environ["DEALWEB_MAX_PRODUCTS"] = "1"
