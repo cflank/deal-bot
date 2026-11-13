@@ -292,7 +292,7 @@ class Handler(BaseHTTPRequestHandler):
         if "/" in name or "\\" in name or name.startswith(".") or not file.is_file() or file.suffix not in TYPES:
             self._send(404, b"Not found", "text/plain; charset=utf-8")
             return
-        cache = "no-cache" if file.suffix == ".html" else "public, max-age=300"
+        cache = "no-cache"
         self._send(200, file.read_bytes(), TYPES[file.suffix], {"Cache-Control": cache})
 
     def _handle(self) -> None:

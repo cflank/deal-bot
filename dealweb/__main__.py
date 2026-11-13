@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 from pathlib import Path
@@ -58,6 +59,7 @@ def main(argv=None) -> int:
     s = sub.add_parser("serve", help="启动网页服务")
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8787)
+    s.add_argument("--dev", action="store_true", help="开发模式：验证码和推送只打印，不真发")
     sub.add_parser("worker", help="检查一轮（由定时器调用）")
     s = sub.add_parser("invite", help="生成邀请码")
     s.add_argument("--admin", action="store_true", help="用这个邀请码注册的账户是管理员")
@@ -75,6 +77,8 @@ def main(argv=None) -> int:
         print(probe_shop(args.domain, args.query))
         return 0
     if args.cmd == "serve":
+        if args.dev:
+            os.environ["DEALWEB_DEV"] = "1"
         from .server import serve
         httpd = serve(args.host, args.port)
         print(f"dealweb 运行在 http://{args.host}:{args.port}" + ("（开发模式：验证码打印在这里）" if auth.dev_mode() else ""))
