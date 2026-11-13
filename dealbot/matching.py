@@ -135,6 +135,11 @@ def assess(offer: Offer, product: dict) -> Assessment:
         target = _num(targets.get("default"))
     # Absolute target prices are for new units; second-hand uses the percentage rule only.
     hit_target = offer.condition == "new" and target is not None and offer.price <= target
+    # alert_below: one absolute price for every condition the product accepts.
+    below = _num(product.get("alert_below"))
+    if below is not None:
+        hit_target = hit_target or offer.price <= below
+        target = target if target is not None else below
     qualifies = (pct is not None and max_pct is not None and pct <= max_pct) or hit_target
 
     return Assessment(tier=tier, storage_guessed=guessed, msrp=msrp, pct_of_msrp=pct,

@@ -208,6 +208,25 @@ def source_bestbuy(cfg: dict) -> list[Offer]:
     return offers
 
 
+def source_shopify(cfg: dict) -> list[Offer]:
+    """A Shopify store's public predictive-search endpoint (at most 10 products per query)."""
+    base = f"https://{cfg['domain']}"
+    q = urllib.parse.quote_plus(cfg["query"])
+    url = f"{base}/search/suggest.json?q={q}&resources%5Btype%5D=product&resources%5Blimit%5D=10"
+    data = json.loads(fetch(url, accept="application/json"))
+    offers = []
+    for p in data.get("resources", {}).get("results", {}).get("products", []):
+        price = parse_price(p.get("price"))
+        if not price or not p.get("title"):
+            continue
+        regular = parse_price(p.get("compare_at_price_max"))
+        link = urllib.parse.urljoin(base, (p.get("url") or "").split("?")[0])
+        offers.append(Offer(cfg["name"], p["title"], price, link,
+                            regular_price=regular if regular and regular > price else None,
+                            in_stock=p.get("available") if isinstance(p.get("available"), bool) else None))
+    return offers
+
+
 _AMZ_SPLIT = re.compile(r'data-component-type="s-search-result"')
 _AMZ_ASIN = re.compile(r'data-asin="([A-Z0-9]{10})"')
 _AMZ_TITLE = re.compile(r"<h2[^>]*>(.*?)</h2>", re.S)
@@ -274,5 +293,6 @@ def source_rfd(cfg: dict) -> list[Post]:
     return parse_feed(fetch(cfg["url"], accept="application/rss+xml,application/atom+xml,text/xml"), cfg["name"])
 
 
-OFFER_SOURCES = {"page": source_page, "bestbuy": source_bestbuy, "amazon": source_amazon}
+OFFER_SOURCES = {"page": source_page, "bestbuy": source_bestbuy, "amazon": source_amazon,
+                 "shopify": source_shopify}
 POST_SOURCES = {"rfd": source_rfd}

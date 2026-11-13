@@ -83,7 +83,7 @@ def _fill(template: str, product: dict) -> str:
 
 
 def _per_product(src: dict) -> bool:
-    return src["type"] == "bestbuy" or "{query" in src.get("url", "")
+    return src["type"] in ("bestbuy", "shopify") or "{query" in src.get("url", "")
 
 
 def _keep(o: Offer, product: dict, src: dict, st: dict) -> bool:
@@ -95,9 +95,17 @@ def _keep(o: Offer, product: dict, src: dict, st: dict) -> bool:
         return False
     if st["skip_out_of_stock"] and o.in_stock is False:
         return False
+    cond = src.get("condition") or detect_condition(o.title) or "new"
+    if product.get("conditions") and cond not in product["conditions"]:
+        return False
     o.product = product["id"]
-    o.condition = src.get("condition") or detect_condition(o.title) or "new"
+    o.condition = cond
     return True
+
+
+def _wants(product: dict, src: dict) -> bool:
+    """A product may list the source ids it should be searched on; no list means all."""
+    return not product.get("sources") or src.get("id") in product["sources"]
 
 
 def collect(cfg: dict, pause: float = 1.5) -> tuple[list[Offer], list[Post], dict]:
@@ -106,7 +114,9 @@ def collect(cfg: dict, pause: float = 1.5) -> tuple[list[Offer], list[Post], dic
     offers: list[Offer] = []
     posts: list[Post] = []
     health: dict = {}
+    all_products = products
     for src in cfg.get("sources", []):
+        products = [p for p in all_products if _wants(p, src)]
         if not src.get("enabled", True) or not products:
             continue
         name, typ = src["name"], src["type"]
